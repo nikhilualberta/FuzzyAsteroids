@@ -19,7 +19,7 @@ import matplotlib as plt
 #TODO
 # We might need a new antecedent for asteroid distance, and based on that apply thrust
 
-class ScottDickController(KesslerController):
+class DefensiveCamperController(KesslerController):
         
     def __init__(self):
         self.eval_frames = 0 #What is this?
@@ -28,12 +28,9 @@ class ScottDickController(KesslerController):
         # Declare variables
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
-        # Declare the new antecedent for obstacle distance
-        # obstacle_distance = ctrl.Antecedent(np.arange(0, 500, 1), 'obstacle_distance')
 
         ship_turn = ctrl.Consequent(np.arange(-180,180,1), 'ship_turn') # Degrees due to Kessler
         ship_fire = ctrl.Consequent(np.arange(-1,1,0.1), 'ship_fire')
-        # bono test
         ship_thrust = ctrl.Consequent(np.arange(-450, 450, 1), 'ship_thrust') 
 
         #Declare fuzzy sets for bullet_time (how long it takes for the bullet to reach the intercept point)
@@ -60,43 +57,37 @@ class ScottDickController(KesslerController):
         ship_fire['N'] = fuzz.trimf(ship_fire.universe, [-1,-1,0.0])
         ship_fire['Y'] = fuzz.trimf(ship_fire.universe, [0.0,1,1]) 
         
-        # bono test
-        # Declare fuzzy sets for obstacle_distance
-        # obstacle_distance['N'] = fuzz.trimf(obstacle_distance.universe, [0, 0, 250])
-        # obstacle_distance['F'] = fuzz.trimf(obstacle_distance.universe, [0, 250, 500])
-
         ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-450, -450, -337.5])
         ship_thrust['NS'] = fuzz.trimf(ship_thrust.universe, [-337.5, -225, -112.5])
         ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-112.5, 0, 112.5])
         ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [112.5, 225, 337.5])
         ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 450, 450])
 
-
         #Declare each fuzzy rule
-        rule1 = ctrl.Rule(bullet_time['L'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['NL']))
-        rule2 = ctrl.Rule(bullet_time['L'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS']))
-        rule3 = ctrl.Rule(bullet_time['L'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['Z']))
-        rule4 = ctrl.Rule(bullet_time['L'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS']))
+        rule1 = ctrl.Rule(bullet_time['L'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL']))
+        rule2 = ctrl.Rule(bullet_time['L'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL']))
+        rule3 = ctrl.Rule(bullet_time['L'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PL']))
+        rule4 = ctrl.Rule(bullet_time['L'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PL']))
         rule5 = ctrl.Rule(bullet_time['L'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
-        rule6 = ctrl.Rule(bullet_time['M'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['NL']))
-        rule7 = ctrl.Rule(bullet_time['M'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS']))
-        rule8 = ctrl.Rule(bullet_time['M'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['Z']))
+
+        rule6 = ctrl.Rule(bullet_time['M'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PS']))
+        rule7 = ctrl.Rule(bullet_time['M'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS']))
+        rule8 = ctrl.Rule(bullet_time['M'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PS']))
         rule9 = ctrl.Rule(bullet_time['M'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS']))
-        rule10 = ctrl.Rule(bullet_time['M'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
-        rule11 = ctrl.Rule(bullet_time['S'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['Y'], ship_thrust['PS']))
-        rule12 = ctrl.Rule(bullet_time['S'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS']))
-        rule13 = ctrl.Rule(bullet_time['S'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PS']))
-        rule14 = ctrl.Rule(bullet_time['S'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS']))
-        rule15 = ctrl.Rule(bullet_time['S'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['Y'], ship_thrust['PS']))
+        rule10 = ctrl.Rule(bullet_time['M'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PS']))
+
+        rule11 = ctrl.Rule(bullet_time['S'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['NS']))
+        rule12 = ctrl.Rule(bullet_time['S'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS']))
+        rule13 = ctrl.Rule(bullet_time['S'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NS']))
+        rule14 = ctrl.Rule(bullet_time['S'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS']))
+        rule15 = ctrl.Rule(bullet_time['S'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['NS']))
 
         #DEBUG
         #bullet_time.view()
         #theta_delta.view()
         #ship_turn.view()
         #ship_fire.view()
-     
-     
-        
+        # ship_thrust.view()
         # Declare the fuzzy controller, add the rules 
         # This is an instance variable, and thus available for other methods in the same object. See notes.                         
         # self.targeting_control = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15])
@@ -117,9 +108,6 @@ class ScottDickController(KesslerController):
         self.targeting_control.addrule(rule13)
         self.targeting_control.addrule(rule14)
         self.targeting_control.addrule(rule15)
-
-        
-        
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool]:
         """
@@ -232,12 +220,11 @@ class ScottDickController(KesslerController):
         # And return your three outputs to the game simulation. Controller algorithm complete.
         
         self.eval_frames +=1
-        # thrust = 0
         #DEBUG
         #print(thrust, bullet_t, shooting_theta, turn_rate, fire)
-        print("thrust is " + str(thrust))
+        print("thrust is " + str(thrust) + "\n" + "turn rate is " + str(turn_rate) + "\n" + "fire is " + str(fire) + "\n")
         return thrust, turn_rate, fire
 
     @property
     def name(self) -> str:
-        return "ScottDick Controller"
+        return "Defensive Camper Controller"
