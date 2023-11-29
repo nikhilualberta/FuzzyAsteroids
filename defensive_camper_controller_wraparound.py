@@ -136,12 +136,11 @@ class DefensiveCamperControllerWraparound(KesslerController):
             wrap_dist = min(coord1, coord2) + max_coord - max(coord1, coord2)
             return min(direct_dist, wrap_dist)
 
-        # Assuming you have the size of the field (max_x, max_y)
+        # Our field is 800x800 in size
         max_x = 800
         max_y = 800
 
         # Find the closest asteroid (disregards asteroid velocity)
-
         ship_pos_x = ship_state["position"][0] # See src/kesslergame/ship.py in the KesslerGame Github
         ship_pos_y = ship_state["position"][1]
         closest_asteroid = None
