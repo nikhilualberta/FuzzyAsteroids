@@ -136,6 +136,26 @@ class DefensiveCamperControllerWraparound(KesslerController):
             wrap_dist = min(coord1, coord2) + max_coord - max(coord1, coord2)
             return min(direct_dist, wrap_dist)
 
+        # Function to duplicate asteroid positions for wraparound
+        def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y):
+            # Original position
+            duplicates = [asteroid]
+
+            # Original X and Y coordinates
+            orig_x, orig_y = asteroid["position"]
+
+            # Generate positions for the duplicates
+            for dx in [-max_x, 0, max_x]:
+                for dy in [-max_y, 0, max_y]:
+                    if dx == 0 and dy == 0:
+                        continue  # Skip the original asteroid position
+                    new_pos = (orig_x + dx, orig_y + dy)
+                    duplicate = asteroid.copy()
+                    duplicate["position"] = new_pos
+                    duplicates.append(duplicate)
+
+            return duplicates
+
         # Our field is 800x800 in size
         max_x = 800
         max_y = 800
@@ -146,19 +166,22 @@ class DefensiveCamperControllerWraparound(KesslerController):
         closest_asteroid = None
 
         for a in game_state["asteroids"]:
-            # Calculate wrapped distance for both x and y coordinates
-            wrapped_dist_x = wrapped_distance(ship_pos_x, a["position"][0], max_x)
-            wrapped_dist_y = wrapped_distance(ship_pos_y, a["position"][1], max_y)
+            # Duplicate asteroid positions for wraparound
+            duplicated_asteroids = duplicate_asteroids_for_wraparound(a, max_x, max_y)
+            for dup_asteroid in duplicated_asteroids:
+                # Calculate wrapped distance for both x and y coordinates
+                #wrapped_dist_x = wrapped_distance(ship_pos_x, dup_asteroid["position"][0], max_x)
+                #wrapped_dist_y = wrapped_distance(ship_pos_y, dup_asteroid["position"][1], max_y)
 
-            # Calculate Euclidean distance considering wraparound
-            curr_dist = wrapped_dist_x**2 + wrapped_dist_y**2
+                # Calculate Euclidean distance considering wraparound
+                curr_dist = (dup_asteroid["position"][0] - ship_pos_x)**2 + (dup_asteroid["position"][1] - ship_pos_y)**2
 
-            if closest_asteroid is None:
-                closest_asteroid = dict(aster=a, dist=curr_dist)
-            else:
-                if closest_asteroid["dist"] > curr_dist:
-                    closest_asteroid["aster"] = a
-                    closest_asteroid["dist"] = curr_dist
+                if closest_asteroid is None:
+                    closest_asteroid = dict(aster=dup_asteroid, dist=curr_dist)
+                else:
+                    if closest_asteroid["dist"] > curr_dist:
+                        closest_asteroid["aster"] = dup_asteroid
+                        closest_asteroid["dist"] = curr_dist
 
         closest_asteroid["dist"] = math.sqrt(closest_asteroid["dist"])
         # closest_asteroid now contains the nearest asteroid considering wraparound
@@ -182,13 +205,13 @@ class DefensiveCamperControllerWraparound(KesslerController):
         # Need the speeds of the asteroid and bullet. speed * time is distance to the intercept point
         asteroid_vel = math.sqrt(closest_asteroid["aster"]["velocity"][0]**2 + closest_asteroid["aster"]["velocity"][1]**2)
         bullet_speed = 800 # Hard-coded bullet speed from bullet.py
-        
+
         # Determinant of the quadratic formula b^2-4ac
         targ_det = (-2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2)**2 - (4*(asteroid_vel**2 - bullet_speed**2) * closest_asteroid["dist"])
         
         # Combine the Law of Cosines with the quadratic formula for solve for intercept time. Remember, there are two values produced.
-        intrcpt1 = ((2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2) + math.sqrt(targ_det)) / (2 * (asteroid_vel**2 -bullet_speed**2))
-        intrcpt2 = ((2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2) - math.sqrt(targ_det)) / (2 * (asteroid_vel**2-bullet_speed**2))
+        intrcpt1 = ((2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2) + math.sqrt(targ_det)) / (2 * (asteroid_vel**2 - bullet_speed**2))
+        intrcpt2 = ((2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2) - math.sqrt(targ_det)) / (2 * (asteroid_vel**2 - bullet_speed**2))
         
         # Take the smaller intercept time, as long as it is positive; if not, take the larger one.
         if intrcpt1 > intrcpt2:
@@ -202,7 +225,7 @@ class DefensiveCamperControllerWraparound(KesslerController):
             else:
                 bullet_t = intrcpt2
                 
-        # Calculate the intercept point. The work backwards to find the ship's firing angle my_theta1.
+        # Calculate the intercept point. Then work backwards to find the ship's firing angle my_theta1.
         intrcpt_x = closest_asteroid["aster"]["position"][0] + closest_asteroid["aster"]["velocity"][0] * bullet_t
         intrcpt_y = closest_asteroid["aster"]["position"][1] + closest_asteroid["aster"]["velocity"][1] * bullet_t
         
