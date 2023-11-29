@@ -164,10 +164,21 @@ class DefensiveCamperControllerWraparound(KesslerController):
         ship_pos_x = ship_state["position"][0] # See src/kesslergame/ship.py in the KesslerGame Github
         ship_pos_y = ship_state["position"][1]
         closest_asteroid = None
+        closest_asteroid_wraparound = None
 
         for a in game_state["asteroids"]:
             # Duplicate asteroid positions for wraparound
             duplicated_asteroids = duplicate_asteroids_for_wraparound(a, max_x, max_y)
+            # Find distance without wraparound
+            curr_dist = (a["position"][0] - ship_pos_x)**2 + (a["position"][1] - ship_pos_y)**2
+
+            if closest_asteroid is None:
+                    closest_asteroid = dict(aster=a, dist=curr_dist)
+            else:
+                if closest_asteroid["dist"] > curr_dist:
+                    closest_asteroid["aster"] = a
+                    closest_asteroid["dist"] = curr_dist
+
             for dup_asteroid in duplicated_asteroids:
                 # Calculate wrapped distance for both x and y coordinates
                 #wrapped_dist_x = wrapped_distance(ship_pos_x, dup_asteroid["position"][0], max_x)
@@ -176,14 +187,15 @@ class DefensiveCamperControllerWraparound(KesslerController):
                 # Calculate Euclidean distance considering wraparound
                 curr_dist = (dup_asteroid["position"][0] - ship_pos_x)**2 + (dup_asteroid["position"][1] - ship_pos_y)**2
 
-                if closest_asteroid is None:
-                    closest_asteroid = dict(aster=dup_asteroid, dist=curr_dist)
+                if closest_asteroid_wraparound is None:
+                    closest_asteroid_wraparound = dict(aster=dup_asteroid, dist=curr_dist)
                 else:
-                    if closest_asteroid["dist"] > curr_dist:
-                        closest_asteroid["aster"] = dup_asteroid
-                        closest_asteroid["dist"] = curr_dist
+                    if closest_asteroid_wraparound["dist"] > curr_dist:
+                        closest_asteroid_wraparound["aster"] = dup_asteroid
+                        closest_asteroid_wraparound["dist"] = curr_dist
 
         closest_asteroid["dist"] = math.sqrt(closest_asteroid["dist"])
+        closest_asteroid_wraparound["dist"] = math.sqrt(closest_asteroid_wraparound["dist"])
         # closest_asteroid now contains the nearest asteroid considering wraparound
 
         # Calculate intercept time given ship & asteroid position, asteroid velocity vector, bullet speed (not direction).
@@ -192,7 +204,6 @@ class DefensiveCamperControllerWraparound(KesslerController):
         # Side D of the triangle is given by closest_asteroid.dist. Need to get the asteroid-ship direction
         #    and the angle of the asteroid's current movement.
         # REMEMBER TRIG FUNCTIONS ARE ALL IN RADAINS!!!
-        
         
         asteroid_ship_x = ship_pos_x - closest_asteroid["aster"]["position"][0]
         asteroid_ship_y = ship_pos_y - closest_asteroid["aster"]["position"][1]
