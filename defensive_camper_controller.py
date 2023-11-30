@@ -23,6 +23,10 @@ class DefensiveCamperController(KesslerController):
     def __init__(self):
         self.init_done = False
 
+        self.pid_integral = 0
+        self.pid_previous_error = 0
+        self.previously_targetted_asteroid = None
+
     def finish_init(self, game_state):
         self.eval_frames = 0 #What is this?
 
@@ -30,6 +34,8 @@ class DefensiveCamperController(KesslerController):
         # Declare variables
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
+        theta_delta_integral = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta_integral') # Radians due to Python
+        theta_delta_derivative = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta_derivative') # Radians due to Python
         asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
         ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed')
         current_ship_thrust = ctrl.Antecedent(np.arange(-450, 450, 1), 'current_ship_thrust')
@@ -40,19 +46,36 @@ class DefensiveCamperController(KesslerController):
         ship_fire = ctrl.Consequent(np.arange(-1,1,0.1), 'ship_fire')
         ship_thrust = ctrl.Consequent(np.arange(-450, 450, 1), 'ship_thrust') 
 
-        #Declare fuzzy sets for bullet_time (how long it takes for the bullet to reach the intercept point)
+        # Declare fuzzy sets for bullet_time (how long it takes for the bullet to reach the intercept point)
         bullet_time['S'] = fuzz.trimf(bullet_time.universe,[0,0,0.05])
         bullet_time['M'] = fuzz.trimf(bullet_time.universe, [0,0.05,0.1])
         bullet_time['L'] = fuzz.smf(bullet_time.universe,0.0,0.1)
         
-        #Declare fuzzy sets for theta_delta (degrees of turn needed to reach the calculated firing angle)
-        theta_delta['NL'] = fuzz.zmf(theta_delta.universe, -1*math.pi/3,-1*math.pi/6)
-        theta_delta['NS'] = fuzz.trimf(theta_delta.universe, [-1*math.pi/3,-1*math.pi/6,0])
-        theta_delta['Z'] = fuzz.trimf(theta_delta.universe, [-1*math.pi/6,0,math.pi/6])
-        theta_delta['PS'] = fuzz.trimf(theta_delta.universe, [0,math.pi/6,math.pi/3])
-        theta_delta['PL'] = fuzz.smf(theta_delta.universe,math.pi/6,math.pi/3)
+        # PID stuff
+        Kp = 1.0
+        Ki = 1.0
+        Kd = 1.0
+
+        # Declare fuzzy sets for theta_delta (degrees of turn needed to reach the calculated firing angle)
+        theta_delta['NL'] = fuzz.zmf(theta_delta.universe, -1*Kp*math.pi/3, -1*Kp*math.pi/6)
+        theta_delta['NS'] = fuzz.trimf(theta_delta.universe, [-1*Kp*math.pi/3, -1*Kp*math.pi/6, 0])
+        theta_delta['Z'] = fuzz.trimf(theta_delta.universe, [-1*Kp*math.pi/6, 0, Kp*math.pi/6])
+        theta_delta['PS'] = fuzz.trimf(theta_delta.universe, [0, Kp*math.pi/6, Kp*math.pi/3])
+        theta_delta['PL'] = fuzz.smf(theta_delta.universe, Kp*math.pi/6, Kp*math.pi/3)
+
+        theta_delta_integral['NL'] = fuzz.zmf(theta_delta_integral.universe, -1*Ki*math.pi/3, -1*Ki*math.pi/6)
+        theta_delta_integral['NS'] = fuzz.trimf(theta_delta_integral.universe, [-1*Ki*math.pi/3, -1*Ki*math.pi/6, 0])
+        theta_delta_integral['Z'] = fuzz.trimf(theta_delta_integral.universe, [-1*Ki*math.pi/6, 0, Ki*math.pi/6])
+        theta_delta_integral['PS'] = fuzz.trimf(theta_delta_integral.universe, [0, Ki*math.pi/6, Ki*math.pi/3])
+        theta_delta_integral['PL'] = fuzz.smf(theta_delta_integral.universe, Ki*math.pi/6, Ki*math.pi/3)
+
+        theta_delta_derivative['NL'] = fuzz.zmf(theta_delta_derivative.universe, -1*Kd*math.pi/3, -1*Kd*math.pi/6)
+        theta_delta_derivative['NS'] = fuzz.trimf(theta_delta_derivative.universe, [-1*Kd*math.pi/3, -1*Kd*math.pi/6, 0])
+        theta_delta_derivative['Z'] = fuzz.trimf(theta_delta_derivative.universe, [-1*Kd*math.pi/6, 0, Kd*math.pi/6])
+        theta_delta_derivative['PS'] = fuzz.trimf(theta_delta_derivative.universe, [0, Kd*math.pi/6, Kd*math.pi/3])
+        theta_delta_derivative['PL'] = fuzz.smf(theta_delta_derivative.universe, Kd*math.pi/6, Kd*math.pi/3)
         
-        #Declare fuzzy sets for the ship_turn consequent; this will be returned as turn_rate.
+        # Declare fuzzy sets for the ship_turn consequent; this will be returned as turn_rate.
         ship_turn['NL'] = fuzz.trimf(ship_turn.universe, [-180,-180,-30])
         ship_turn['NS'] = fuzz.trimf(ship_turn.universe, [-90,-30,0])
         ship_turn['Z'] = fuzz.trimf(ship_turn.universe, [-30,0,30])
@@ -96,33 +119,32 @@ class DefensiveCamperController(KesslerController):
         ship_pos_y['close_to_bottom'] = fuzz.trimf( ship_pos_y.universe, [min_y, min_y + buffer, min_y + buffer * 2])
         
         position_control_rules = [
+            # CURRENTLY UNUSED
             ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['NL'], (ship_fire['N'], ship_thrust['PL'])),
             ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['NS'], (ship_fire['N'], ship_thrust['PL'])),
             ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['Z'], (ship_fire['N'], ship_thrust['PL'])),
             ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['PL'], (ship_fire['N'], ship_thrust['PL'])),
             ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['PS'], (ship_fire['N'], ship_thrust['PL'])),
-            
         ]
 
         # Declare each fuzzy rule
         defensive_camper_rules = [
-            ctrl.Rule(bullet_time['L'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
-            ctrl.Rule(bullet_time['L'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL'])),
-            ctrl.Rule(bullet_time['L'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PL'])),
-            ctrl.Rule(bullet_time['L'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PL'])),
-            ctrl.Rule(bullet_time['L'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL'])),
+            # PID controller to determine turn rate
+            # ship_turn = P + I + D = theta_delta + theta_delta_integral + theta_delta_derivative
+            ctrl.Rule(theta_delta['NL'], ship_turn['NL']),
+            ctrl.Rule(theta_delta['NS'], ship_turn['NS']),
+            ctrl.Rule(theta_delta['Z'], ship_turn['Z']),
+            ctrl.Rule(theta_delta['PS'], ship_turn['PS']),
+            ctrl.Rule(theta_delta['PL'], ship_turn['PL']),
 
-            ctrl.Rule(bullet_time['M'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PS'])),
-            ctrl.Rule(bullet_time['M'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS'])),
-            ctrl.Rule(bullet_time['M'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PS'])),
-            ctrl.Rule(bullet_time['M'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS'])),
-            ctrl.Rule(bullet_time['M'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PS'])),
+            # Only fire if we're pretty much aimed at the asteroid
+            ctrl.Rule(theta_delta['NL'] | theta_delta['PL'], ship_fire['N']),
+            ctrl.Rule(theta_delta['NS'] | theta_delta['Z'] | theta_delta['PS'], ship_fire['Y']),
 
-            ctrl.Rule(bullet_time['S'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['NS'])),
-            ctrl.Rule(bullet_time['S'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS'])),
-            ctrl.Rule(bullet_time['S'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NS'])),
-            ctrl.Rule(bullet_time['S'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS'])),
-            ctrl.Rule(bullet_time['S'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['NS']))  
+            # If we're far from the asteroid, thrust toward it. If we're super close, stop going closer and even back up a bit
+            ctrl.Rule(bullet_time['L'], ship_thrust['PL']),
+            ctrl.Rule(bullet_time['M'], ship_thrust['PS']),
+            ctrl.Rule(bullet_time['S'], ship_thrust['NS']),
         ]
         
         thrust_control_rules = [
@@ -165,9 +187,9 @@ class DefensiveCamperController(KesslerController):
         # This is an instance variable, and thus available for other methods in the same object. See notes.                         
         # self.targeting_control = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15])
         
-        self.position_conrol = ctrl.ControlSystem()  
+        self.position_control = ctrl.ControlSystem()  
         for i in position_control_rules:
-            self.position_conrol.addrule(i)
+            self.position_control.addrule(i)
          
         self.targeting_control = ctrl.ControlSystem()
         for i in defensive_camper_rules:
@@ -277,6 +299,14 @@ class DefensiveCamperController(KesslerController):
         closest_asteroid_wraparound["dist"] = math.sqrt(closest_asteroid_wraparound["dist"])
         # For now, don't use the two asteroids separately and only use the wraparound one
         closest_asteroid = closest_asteroid_wraparound
+        
+        if self.previously_targetted_asteroid is None or closest_asteroid['aster']['velocity'] != self.previously_targetted_asteroid['aster']['velocity']:
+            # We're targetting a new asteroid. Reset the PID terms
+            #print("Targetting new asteroid!")
+            #print(closest_asteroid)
+            self.pid_integral = 0
+            self.pid_previous_error = 0
+            self.previously_targetted_asteroid = closest_asteroid
         # closest_asteroid now contains the nearest asteroid considering wraparound
 
         # closest_asteroid is now the nearest asteroid object. 
@@ -325,7 +355,7 @@ class DefensiveCamperController(KesslerController):
         
         my_theta1 = math.atan2((intrcpt_y - ship_pos_y),(intrcpt_x - ship_pos_x))
         
-        # Lastly, find the difference betwwen firing angle and the ship's current orientation. BUT THE SHIP HEADING IS IN DEGREES.
+        # Lastly, find the difference between firing angle and the ship's current orientation. BUT THE SHIP HEADING IS IN DEGREES.
         shooting_theta = my_theta1 - ((math.pi/180)*ship_state["heading"])
         
         # Wrap all angles to (-pi, pi)
@@ -340,6 +370,11 @@ class DefensiveCamperController(KesslerController):
         
         shooting.input['bullet_time'] = bullet_t
         shooting.input['theta_delta'] = shooting_theta
+        self.pid_integral += shooting_theta
+        #shooting.input['theta_delta_integral'] = self.pid_integral
+        pid_integral = self.pid_integral
+        shooting.input['theta_delta_derivative'] = shooting_theta - self.pid_previous_error
+        self.pid_previous_error = shooting_theta
         
         shooting.compute()
         
@@ -363,14 +398,14 @@ class DefensiveCamperController(KesslerController):
         #     # turn_rate = position.output['ship_turn']
         #     thrust = position.output['ship_thrust']
         
-        # this controller will look at out current speed and thurst and adjust so we dont uncontrollably runaway
-        thurst_controller = ctrl.ControlSystemSimulation(self.thrust_control,flush_after_run=1)
+        # this controller will look at out current speed and thrust and adjust so we dont uncontrollably runaway
+        thrust_controller = ctrl.ControlSystemSimulation(self.thrust_control,flush_after_run=1)
         
-        thurst_controller.input['ship_speed'] = ship_state['speed']
-        thurst_controller.input['current_ship_thrust'] = thrust     
-        thurst_controller.compute()   
+        thrust_controller.input['ship_speed'] = ship_state['speed']
+        thrust_controller.input['current_ship_thrust'] = thrust     
+        thrust_controller.compute()   
         
-        thrust = thurst_controller.output['ship_thrust']
+        thrust = thrust_controller.output['ship_thrust']
         #if ship_state['is_respawning']:
         #    print('IS RESPAWNING')
         self.eval_frames +=1
