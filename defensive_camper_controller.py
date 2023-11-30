@@ -15,13 +15,15 @@ import math
 import numpy as np
 import matplotlib as plt
 
-
 #TODO
 # We might need a new antecedent for asteroid distance, and based on that apply thrust
 
 class DefensiveCamperController(KesslerController):
         
     def __init__(self):
+        self.init_done = False
+
+    def finish_init(self, game_state):
         self.eval_frames = 0 #What is this?
 
         # self.targeting_control is the targeting rulebase, which is static in this controller.      
@@ -29,10 +31,10 @@ class DefensiveCamperController(KesslerController):
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
         asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
-        ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed') 
-        current_ship_thrust = ctrl.Antecedent(np.arange(-450, 450, 1), 'current_ship_thrust') 
-        ship_pos_x = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_x') 
-        ship_pos_y = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_y') 
+        ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed')
+        current_ship_thrust = ctrl.Antecedent(np.arange(-450, 450, 1), 'current_ship_thrust')
+        ship_pos_x = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_x')
+        ship_pos_y = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_y')
 
         ship_turn = ctrl.Consequent(np.arange(-180,180,1), 'ship_turn') # Degrees due to Kessler
         ship_fire = ctrl.Consequent(np.arange(-1,1,0.1), 'ship_fire')
@@ -57,7 +59,7 @@ class DefensiveCamperController(KesslerController):
         ship_turn['PS'] = fuzz.trimf(ship_turn.universe, [0,30,90])
         ship_turn['PL'] = fuzz.trimf(ship_turn.universe, [30,180,180])
         
-        #Declare singleton fuzzy sets for the ship_fire consequent; -1 -> don't fire, +1 -> fire; this will be  thresholded
+        #Declare singleton fuzzy sets for the ship_fire consequent; -1 -> don't fire, +1 -> fire; this will be thresholded
         #   and returned as the boolean 'fire'
         ship_fire['N'] = fuzz.trimf(ship_fire.universe, [-1,-1,0.0])
         ship_fire['Y'] = fuzz.trimf(ship_fire.universe, [0.0,1,1]) 
@@ -83,8 +85,8 @@ class DefensiveCamperController(KesslerController):
         buffer = 70
         min_x = 0
         min_y = 0
-        max_x = 800
-        max_y = 800
+        max_x = game_state['map_size'][0]
+        max_y = game_state['map_size'][1]
         
         ship_pos_x['close_to_left'] = fuzz.trimf(ship_pos_x.universe, [min_x, min_x + buffer, min_x + buffer])
         ship_pos_x['close_to_right'] = fuzz.trimf(ship_pos_y.universe, [max_x - buffer, max_x - buffer, max_x])
@@ -102,7 +104,7 @@ class DefensiveCamperController(KesslerController):
             
         ]
 
-        #Declare each fuzzy rule
+        # Declare each fuzzy rule
         defensive_camper_rules = [
             ctrl.Rule(bullet_time['L'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
             ctrl.Rule(bullet_time['L'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL'])),
@@ -124,7 +126,7 @@ class DefensiveCamperController(KesslerController):
         ]
         
         thrust_control_rules = [
-            #if we are moving slowly enough just continue with current thrust
+            # If we are moving slowly enough just continue with current thrust
             ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['PL'])), # We are moving very slowly so let them continue
             ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['PS'])), # We are moving very slowly so let them continue
             ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['Z'])),
@@ -150,7 +152,6 @@ class DefensiveCamperController(KesslerController):
             ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['Z'])), #slow down
             ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NS'])), #slow down
             ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NL'])) #slow down
-
         ]
         
 
@@ -163,7 +164,7 @@ class DefensiveCamperController(KesslerController):
         # Declare the fuzzy controller, add the rules 
         # This is an instance variable, and thus available for other methods in the same object. See notes.                         
         # self.targeting_control = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15])
-            
+        
         self.position_conrol = ctrl.ControlSystem()  
         for i in position_control_rules:
             self.position_conrol.addrule(i)
@@ -172,12 +173,21 @@ class DefensiveCamperController(KesslerController):
         for i in defensive_camper_rules:
             self.targeting_control.addrule(i)
             
-        self.thurst_control = ctrl.ControlSystem()
+        self.thrust_control = ctrl.ControlSystem()
         for i in thrust_control_rules:
-            self.thurst_control.addrule(i)
-        
+            self.thrust_control.addrule(i)
+    
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool]:
+        if not self.init_done:
+            self.finish_init(game_state)
+            self.init_done = True
+        #print('Self:')
+        #print(self)
+        #print('Game state:')
+        #print(game_state)
+        #print('Ship state:')
+        #print(ship_state)
         """
         Method processed each time step by this controller.
         """
@@ -193,8 +203,6 @@ class DefensiveCamperController(KesslerController):
         # Ship velocity is updated by multiplying thrust by delta time.
         # Ship position for this time increment is updated after the the thrust was applied.
         
-
-        # My demonstration controller does not move the ship, only rotates it to shoot the nearest asteroid.
         # Goal: demonstrate processing of game state, fuzzy controller, intercept computation 
         # Intercept-point calculation derived from the Law of Cosines, see notes for details and citation.
 
@@ -215,8 +223,8 @@ class DefensiveCamperController(KesslerController):
             # Generate positions for the duplicates
             for dx in [-max_x, 0, max_x]:
                 for dy in [-max_y, 0, max_y]:
-                    if dx == 0 and dy == 0:
-                        continue  # Skip the original asteroid position
+                    #if dx == 0 and dy == 0:
+                    #    continue  # Skip the original asteroid position
                     new_pos = (orig_x + dx, orig_y + dy)
                     duplicate = asteroid.copy()
                     duplicate["position"] = new_pos
@@ -224,20 +232,22 @@ class DefensiveCamperController(KesslerController):
 
             return duplicates
 
-        # Need to hard code the field size
-        max_x = 2560
-        max_y = 1440
+        # Field size is hardcoded in map_size_x and map_size_y
 
         # Find the closest asteroid (disregards asteroid velocity)
         ship_pos_x = ship_state["position"][0]     # See src/kesslergame/ship.py in the KesslerGame Github
         ship_pos_y = ship_state["position"][1]       
         closest_asteroid = None
         
+        map_size_x = game_state['map_size'][0]
+        map_size_y = game_state['map_size'][1]
+        #print(map_size_x, map_size_y)
+
         closest_asteroid = None
         closest_asteroid_wraparound = None
         for a in game_state["asteroids"]:
             # Duplicate asteroid positions for wraparound
-            duplicated_asteroids = duplicate_asteroids_for_wraparound(a, max_x, max_y)
+            duplicated_asteroids = duplicate_asteroids_for_wraparound(a, map_size_x, map_size_y)
             # Find distance without wraparound
             curr_dist = (a["position"][0] - ship_pos_x)**2 + (a["position"][1] - ship_pos_y)**2
 
@@ -336,7 +346,7 @@ class DefensiveCamperController(KesslerController):
         # Get the defuzzified outputs
         turn_rate = shooting.output['ship_turn']
         thrust = shooting.output['ship_thrust']
-        if shooting.output['ship_fire'] >= 0:
+        if shooting.output['ship_fire'] >= 0 and not ship_state['is_respawning']:
             fire = True
         else:
             fire = False
@@ -354,18 +364,19 @@ class DefensiveCamperController(KesslerController):
         #     thrust = position.output['ship_thrust']
         
         # this controller will look at out current speed and thurst and adjust so we dont uncontrollably runaway
-        thurst_controller = ctrl.ControlSystemSimulation(self.thurst_control,flush_after_run=1)
+        thurst_controller = ctrl.ControlSystemSimulation(self.thrust_control,flush_after_run=1)
         
         thurst_controller.input['ship_speed'] = ship_state['speed']
         thurst_controller.input['current_ship_thrust'] = thrust     
         thurst_controller.compute()   
         
         thrust = thurst_controller.output['ship_thrust']
-        
+        #if ship_state['is_respawning']:
+        #    print('IS RESPAWNING')
         self.eval_frames +=1
         #DEBUG
         #print(thrust, bullet_t, shooting_theta, turn_rate, fire)
-        print("thrust is " + str(thrust) + "\n" + "turn rate is " + str(turn_rate) + "\n" + "fire is " + str(fire) + "\n")
+        #print("thrust is " + str(thrust) + "\n" + "turn rate is " + str(turn_rate) + "\n" + "fire is " + str(fire) + "\n")
         return thrust, turn_rate, fire
 
     @property
