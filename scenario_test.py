@@ -7,14 +7,15 @@ from kesslergame import Scenario, KesslerGame, GraphicsType
 from test_controller import TestController
 from scott_dick_controller import ScottDickController
 from defensive_camper_controller import DefensiveCamperController
+from defensive_camper_controller_wraparound import DefensiveCamperControllerWraparound
 from threat_controller import ThreatController
+from avoider_controller import AvoiderController
 from graphics_both import GraphicsBoth
 
 my_test_scenario = Scenario(name='Test Scenario',
-                            num_asteroids=5,
+                            num_asteroids=1,
                             ship_states=[
-                            {'position': (400, 400), 'angle': 90, 'lives': 3, 'team': 1},
-                            {'position': (600, 400), 'angle': 90, 'lives': 3, 'team': 2},
+                            {'position': (20, 400), 'angle': 180, 'lives': 3, 'team': 1}
                             ],
                             map_size=(800, 800),
                             time_limit=60,
@@ -25,11 +26,11 @@ game_settings = {'perf_tracker': True,
                 'graphics_type': GraphicsType.Tkinter,
                 'realtime_multiplier': 1,
                 'graphics_obj': None}
-6
+
 game = KesslerGame(settings=game_settings) # Use this to visualize the game scenario
 # game = TrainerEnvironment(settings=game_settings) # Use this for max-speed, no-graphics simulation
 pre = time.perf_counter()
-score, perf_data = game.run(scenario=my_test_scenario, controllers = [ThreatController(), DefensiveCamperController()])
+score, perf_data = game.run(scenario=my_test_scenario, controllers = [DefensiveCamperController()])
 print('Scenario eval time: '+str(time.perf_counter()-pre))
 print(score.stop_reason)
 print('Asteroids hit: ' + str([team.asteroids_hit for team in score.teams]))
