@@ -15,15 +15,15 @@ import math
 import numpy as np
 import matplotlib as plt
 
-map_size_x = 2560
-map_size_y = 1440
-
 #TODO
 # We might need a new antecedent for asteroid distance, and based on that apply thrust
 
 class DefensiveCamperController(KesslerController):
         
     def __init__(self):
+        self.init_done = False
+
+    def finish_init(self, game_state):
         self.eval_frames = 0 #What is this?
 
         # self.targeting_control is the targeting rulebase, which is static in this controller.      
@@ -85,8 +85,8 @@ class DefensiveCamperController(KesslerController):
         buffer = 70
         min_x = 0
         min_y = 0
-        max_x = map_size_x
-        max_y = map_size_y
+        max_x = game_state['map_size'][0]
+        max_y = game_state['map_size'][1]
         
         ship_pos_x['close_to_left'] = fuzz.trimf(ship_pos_x.universe, [min_x, min_x + buffer, min_x + buffer])
         ship_pos_x['close_to_right'] = fuzz.trimf(ship_pos_y.universe, [max_x - buffer, max_x - buffer, max_x])
@@ -176,9 +176,13 @@ class DefensiveCamperController(KesslerController):
         self.thrust_control = ctrl.ControlSystem()
         for i in thrust_control_rules:
             self.thrust_control.addrule(i)
-        
+    
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool]:
+        if not self.init_done:
+            self.finish_init(game_state)
+            self.init_done = True
+            print("Did init!")
         #print('Self:')
         #print(self)
         #print('Game state:')
@@ -236,6 +240,10 @@ class DefensiveCamperController(KesslerController):
         ship_pos_y = ship_state["position"][1]       
         closest_asteroid = None
         
+        map_size_x = game_state['map_size'][0]
+        map_size_y = game_state['map_size'][1]
+        print(map_size_x, map_size_y)
+
         closest_asteroid = None
         closest_asteroid_wraparound = None
         for a in game_state["asteroids"]:
