@@ -213,7 +213,7 @@ class ScottDickController(KesslerController):
             fire = False
                
         # And return your three outputs to the game simulation. Controller algorithm complete.
-        thrust = -100
+        thrust = 0
         
         self.eval_frames +=1
         

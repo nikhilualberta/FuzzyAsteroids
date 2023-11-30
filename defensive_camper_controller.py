@@ -198,24 +198,76 @@ class DefensiveCamperController(KesslerController):
         # Goal: demonstrate processing of game state, fuzzy controller, intercept computation 
         # Intercept-point calculation derived from the Law of Cosines, see notes for details and citation.
 
+        # Function to compute the wrapped distance between two points in one dimension
+        def wrapped_distance(coord1, coord2, max_coord):
+            direct_dist = abs(coord1 - coord2)
+            wrap_dist = min(coord1, coord2) + max_coord - max(coord1, coord2)
+            return min(direct_dist, wrap_dist)
+
+        # Function to duplicate asteroid positions for wraparound
+        def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y):
+            # Original position
+            duplicates = [asteroid]
+
+            # Original X and Y coordinates
+            orig_x, orig_y = asteroid["position"]
+
+            # Generate positions for the duplicates
+            for dx in [-max_x, 0, max_x]:
+                for dy in [-max_y, 0, max_y]:
+                    if dx == 0 and dy == 0:
+                        continue  # Skip the original asteroid position
+                    new_pos = (orig_x + dx, orig_y + dy)
+                    duplicate = asteroid.copy()
+                    duplicate["position"] = new_pos
+                    duplicates.append(duplicate)
+
+            return duplicates
+
+        # Need to hard code the field size
+        max_x = 2560
+        max_y = 1440
+
         # Find the closest asteroid (disregards asteroid velocity)
         ship_pos_x = ship_state["position"][0]     # See src/kesslergame/ship.py in the KesslerGame Github
         ship_pos_y = ship_state["position"][1]       
         closest_asteroid = None
         
+        closest_asteroid = None
+        closest_asteroid_wraparound = None
         for a in game_state["asteroids"]:
-            #Loop through all asteroids, find minimum Eudlidean distance
-            curr_dist = math.sqrt((ship_pos_x - a["position"][0])**2 + (ship_pos_y - a["position"][1])**2)
-            if closest_asteroid is None :
-                # Does not yet exist, so initialize first asteroid as the minimum. Ugh, how to do?
-                closest_asteroid = dict(aster = a, dist = curr_dist)
-                
-            else:    
-                # closest_asteroid exists, and is thus initialized. 
+            # Duplicate asteroid positions for wraparound
+            duplicated_asteroids = duplicate_asteroids_for_wraparound(a, max_x, max_y)
+            # Find distance without wraparound
+            curr_dist = (a["position"][0] - ship_pos_x)**2 + (a["position"][1] - ship_pos_y)**2
+
+            if closest_asteroid is None:
+                    closest_asteroid = dict(aster=a, dist=curr_dist)
+            else:
                 if closest_asteroid["dist"] > curr_dist:
-                    # New minimum found
                     closest_asteroid["aster"] = a
                     closest_asteroid["dist"] = curr_dist
+
+            for dup_asteroid in duplicated_asteroids:
+                # Calculate wrapped distance for both x and y coordinates
+                #wrapped_dist_x = wrapped_distance(ship_pos_x, dup_asteroid["position"][0], max_x)
+                #wrapped_dist_y = wrapped_distance(ship_pos_y, dup_asteroid["position"][1], max_y)
+
+                # Calculate Euclidean distance considering wraparound
+                curr_dist = (dup_asteroid["position"][0] - ship_pos_x)**2 + (dup_asteroid["position"][1] - ship_pos_y)**2
+
+                if closest_asteroid_wraparound is None:
+                    closest_asteroid_wraparound = dict(aster=dup_asteroid, dist=curr_dist)
+                else:
+                    if closest_asteroid_wraparound["dist"] > curr_dist:
+                        closest_asteroid_wraparound["aster"] = dup_asteroid
+                        closest_asteroid_wraparound["dist"] = curr_dist
+
+        #closest_asteroid["dist"] = math.sqrt(closest_asteroid["dist"])
+        closest_asteroid_wraparound["dist"] = math.sqrt(closest_asteroid_wraparound["dist"])
+        # For now, don't use the two asteroids separately and only use the wraparound one
+        closest_asteroid = closest_asteroid_wraparound
+        # closest_asteroid now contains the nearest asteroid considering wraparound
 
         # closest_asteroid is now the nearest asteroid object. 
         # Calculate intercept time given ship & asteroid position, asteroid velocity vector, bullet speed (not direction).
