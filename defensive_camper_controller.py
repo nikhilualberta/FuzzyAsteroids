@@ -182,7 +182,6 @@ class DefensiveCamperController(KesslerController):
         if not self.init_done:
             self.finish_init(game_state)
             self.init_done = True
-            print("Did init!")
         #print('Self:')
         #print(self)
         #print('Game state:')
@@ -242,7 +241,7 @@ class DefensiveCamperController(KesslerController):
         
         map_size_x = game_state['map_size'][0]
         map_size_y = game_state['map_size'][1]
-        print(map_size_x, map_size_y)
+        #print(map_size_x, map_size_y)
 
         closest_asteroid = None
         closest_asteroid_wraparound = None
