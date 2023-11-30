@@ -36,6 +36,7 @@ class DefensiveCamperController(KesslerController):
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
         theta_delta_integral = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta_integral') # Radians due to Python
         theta_delta_derivative = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta_derivative') # Radians due to Python
+        theta_pid_input = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_pid_input') # Radians due to Python
         asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
         ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed')
         current_ship_thrust = ctrl.Antecedent(np.arange(-450, 450, 1), 'current_ship_thrust')
@@ -50,19 +51,23 @@ class DefensiveCamperController(KesslerController):
         bullet_time['S'] = fuzz.trimf(bullet_time.universe,[0,0,0.05])
         bullet_time['M'] = fuzz.trimf(bullet_time.universe, [0,0.05,0.1])
         bullet_time['L'] = fuzz.smf(bullet_time.universe,0.0,0.1)
-        
-        # PID stuff
-        Kp = 1.0
-        Ki = 1.0
-        Kd = 1.0
 
         # Declare fuzzy sets for theta_delta (degrees of turn needed to reach the calculated firing angle)
-        theta_delta['NL'] = fuzz.zmf(theta_delta.universe, -1*Kp*math.pi/3, -1*Kp*math.pi/6)
-        theta_delta['NS'] = fuzz.trimf(theta_delta.universe, [-1*Kp*math.pi/3, -1*Kp*math.pi/6, 0])
-        theta_delta['Z'] = fuzz.trimf(theta_delta.universe, [-1*Kp*math.pi/6, 0, Kp*math.pi/6])
-        theta_delta['PS'] = fuzz.trimf(theta_delta.universe, [0, Kp*math.pi/6, Kp*math.pi/3])
-        theta_delta['PL'] = fuzz.smf(theta_delta.universe, Kp*math.pi/6, Kp*math.pi/3)
+        angle_scale_factor = 1.0
+        theta_delta['NL'] = fuzz.zmf(theta_delta.universe, -1*angle_scale_factor*math.pi/3, -1*angle_scale_factor*math.pi/6)
+        theta_delta['NS'] = fuzz.trimf(theta_delta.universe, [-1*angle_scale_factor*math.pi/3, -1*angle_scale_factor*math.pi/6, 0])
+        theta_delta['Z'] = fuzz.trimf(theta_delta.universe, [-1*angle_scale_factor*math.pi/6, 0, angle_scale_factor*math.pi/6])
+        theta_delta['PS'] = fuzz.trimf(theta_delta.universe, [0, angle_scale_factor*math.pi/6, angle_scale_factor*math.pi/3])
+        theta_delta['PL'] = fuzz.smf(theta_delta.universe, angle_scale_factor*math.pi/6, angle_scale_factor*math.pi/3)
 
+        pid_scale_factor = 3.0
+        theta_pid_input['NL'] = fuzz.zmf(theta_pid_input.universe, -1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6)
+        theta_pid_input['NS'] = fuzz.trimf(theta_pid_input.universe, [-1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6, 0])
+        theta_pid_input['Z'] = fuzz.trimf(theta_pid_input.universe, [-1*pid_scale_factor*math.pi/6, 0, pid_scale_factor*math.pi/6])
+        theta_pid_input['PS'] = fuzz.trimf(theta_pid_input.universe, [0, pid_scale_factor*math.pi/6, pid_scale_factor*math.pi/3])
+        theta_pid_input['PL'] = fuzz.smf(theta_pid_input.universe, pid_scale_factor*math.pi/6, pid_scale_factor*math.pi/3)
+
+        '''
         theta_delta_integral['NL'] = fuzz.zmf(theta_delta_integral.universe, -1*Ki*math.pi/3, -1*Ki*math.pi/6)
         theta_delta_integral['NS'] = fuzz.trimf(theta_delta_integral.universe, [-1*Ki*math.pi/3, -1*Ki*math.pi/6, 0])
         theta_delta_integral['Z'] = fuzz.trimf(theta_delta_integral.universe, [-1*Ki*math.pi/6, 0, Ki*math.pi/6])
@@ -74,7 +79,7 @@ class DefensiveCamperController(KesslerController):
         theta_delta_derivative['Z'] = fuzz.trimf(theta_delta_derivative.universe, [-1*Kd*math.pi/6, 0, Kd*math.pi/6])
         theta_delta_derivative['PS'] = fuzz.trimf(theta_delta_derivative.universe, [0, Kd*math.pi/6, Kd*math.pi/3])
         theta_delta_derivative['PL'] = fuzz.smf(theta_delta_derivative.universe, Kd*math.pi/6, Kd*math.pi/3)
-        
+        '''
         # Declare fuzzy sets for the ship_turn consequent; this will be returned as turn_rate.
         ship_turn['NL'] = fuzz.trimf(ship_turn.universe, [-180,-180,-30])
         ship_turn['NS'] = fuzz.trimf(ship_turn.universe, [-90,-30,0])
@@ -131,11 +136,11 @@ class DefensiveCamperController(KesslerController):
         defensive_camper_rules = [
             # PID controller to determine turn rate
             # ship_turn = P + I + D = theta_delta + theta_delta_integral + theta_delta_derivative
-            ctrl.Rule(theta_delta['NL'], ship_turn['NL']),
-            ctrl.Rule(theta_delta['NS'], ship_turn['NS']),
-            ctrl.Rule(theta_delta['Z'], ship_turn['Z']),
-            ctrl.Rule(theta_delta['PS'], ship_turn['PS']),
-            ctrl.Rule(theta_delta['PL'], ship_turn['PL']),
+            ctrl.Rule(theta_pid_input['NL'], ship_turn['NL']),
+            ctrl.Rule(theta_pid_input['NS'], ship_turn['NS']),
+            ctrl.Rule(theta_pid_input['Z'], ship_turn['Z']),
+            ctrl.Rule(theta_pid_input['PS'], ship_turn['PS']),
+            ctrl.Rule(theta_pid_input['PL'], ship_turn['PL']),
 
             # Only fire if we're pretty much aimed at the asteroid
             ctrl.Rule(theta_delta['NL'] | theta_delta['PL'], ship_fire['N']),
@@ -368,14 +373,24 @@ class DefensiveCamperController(KesslerController):
         # Pass the inputs to the rulebase and fire it
         shooting = ctrl.ControlSystemSimulation(self.targeting_control,flush_after_run=1)
         
+        # PID stuff
+        # If it overshoots a lot and oscillates, either the integral gain (Ki) needs to be increased or all gains (Kp,Ki,Kd) should be reduced
+        # Too much overshoot? Increase Kd, decrease Kp.
+        # Response too damped? Increase Kp.
+        # Ramps up quickly to a value below target value and then slows down as it approaches target value? Try increasing the Ki constant.
+        Kp = 1.0
+        Ki = 0.0
+        Kd = 0.0
+
         shooting.input['bullet_time'] = bullet_t
+        P = shooting_theta
         shooting.input['theta_delta'] = shooting_theta
         self.pid_integral += shooting_theta
-        #shooting.input['theta_delta_integral'] = self.pid_integral
-        pid_integral = self.pid_integral
-        shooting.input['theta_delta_derivative'] = shooting_theta - self.pid_previous_error
+        I = self.pid_integral
+        D = shooting_theta - self.pid_previous_error
         self.pid_previous_error = shooting_theta
-        
+        shooting.input['theta_pid_input'] = Kp*P + Ki*I + Kd*D
+        print(f"P: {Kp*P} I: {Ki*I} D: {Kd*D}")
         shooting.compute()
         
         # Get the defuzzified outputs
