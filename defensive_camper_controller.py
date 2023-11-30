@@ -31,10 +31,10 @@ class DefensiveCamperController(KesslerController):
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
         asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
-        ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed') 
-        current_ship_thrust = ctrl.Antecedent(np.arange(-450, 450, 1), 'current_ship_thrust') 
-        ship_pos_x = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_x') 
-        ship_pos_y = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_y') 
+        ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed')
+        current_ship_thrust = ctrl.Antecedent(np.arange(-450, 450, 1), 'current_ship_thrust')
+        ship_pos_x = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_x')
+        ship_pos_y = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_y')
 
         ship_turn = ctrl.Consequent(np.arange(-180,180,1), 'ship_turn') # Degrees due to Kessler
         ship_fire = ctrl.Consequent(np.arange(-1,1,0.1), 'ship_fire')
@@ -59,7 +59,7 @@ class DefensiveCamperController(KesslerController):
         ship_turn['PS'] = fuzz.trimf(ship_turn.universe, [0,30,90])
         ship_turn['PL'] = fuzz.trimf(ship_turn.universe, [30,180,180])
         
-        #Declare singleton fuzzy sets for the ship_fire consequent; -1 -> don't fire, +1 -> fire; this will be  thresholded
+        #Declare singleton fuzzy sets for the ship_fire consequent; -1 -> don't fire, +1 -> fire; this will be thresholded
         #   and returned as the boolean 'fire'
         ship_fire['N'] = fuzz.trimf(ship_fire.universe, [-1,-1,0.0])
         ship_fire['Y'] = fuzz.trimf(ship_fire.universe, [0.0,1,1]) 
@@ -104,7 +104,7 @@ class DefensiveCamperController(KesslerController):
             
         ]
 
-        #Declare each fuzzy rule
+        # Declare each fuzzy rule
         defensive_camper_rules = [
             ctrl.Rule(bullet_time['L'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
             ctrl.Rule(bullet_time['L'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL'])),
@@ -126,7 +126,7 @@ class DefensiveCamperController(KesslerController):
         ]
         
         thrust_control_rules = [
-            #if we are moving slowly enough just continue with current thrust
+            # If we are moving slowly enough just continue with current thrust
             ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['PL'])), # We are moving very slowly so let them continue
             ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['PS'])), # We are moving very slowly so let them continue
             ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['Z'])),
@@ -152,7 +152,6 @@ class DefensiveCamperController(KesslerController):
             ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['Z'])), #slow down
             ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NS'])), #slow down
             ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NL'])) #slow down
-
         ]
         
 
@@ -165,7 +164,7 @@ class DefensiveCamperController(KesslerController):
         # Declare the fuzzy controller, add the rules 
         # This is an instance variable, and thus available for other methods in the same object. See notes.                         
         # self.targeting_control = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15])
-            
+        
         self.position_conrol = ctrl.ControlSystem()  
         for i in position_control_rules:
             self.position_conrol.addrule(i)
@@ -174,9 +173,9 @@ class DefensiveCamperController(KesslerController):
         for i in defensive_camper_rules:
             self.targeting_control.addrule(i)
             
-        self.thurst_control = ctrl.ControlSystem()
+        self.thrust_control = ctrl.ControlSystem()
         for i in thrust_control_rules:
-            self.thurst_control.addrule(i)
+            self.thrust_control.addrule(i)
         
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool]:
@@ -201,8 +200,6 @@ class DefensiveCamperController(KesslerController):
         # Ship velocity is updated by multiplying thrust by delta time.
         # Ship position for this time increment is updated after the the thrust was applied.
         
-
-        # My demonstration controller does not move the ship, only rotates it to shoot the nearest asteroid.
         # Goal: demonstrate processing of game state, fuzzy controller, intercept computation 
         # Intercept-point calculation derived from the Law of Cosines, see notes for details and citation.
 
@@ -360,7 +357,7 @@ class DefensiveCamperController(KesslerController):
         #     thrust = position.output['ship_thrust']
         
         # this controller will look at out current speed and thurst and adjust so we dont uncontrollably runaway
-        thurst_controller = ctrl.ControlSystemSimulation(self.thurst_control,flush_after_run=1)
+        thurst_controller = ctrl.ControlSystemSimulation(self.thrust_control,flush_after_run=1)
         
         thurst_controller.input['ship_speed'] = ship_state['speed']
         thurst_controller.input['current_ship_thrust'] = thrust     
