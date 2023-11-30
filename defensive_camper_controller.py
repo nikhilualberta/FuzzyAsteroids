@@ -220,8 +220,8 @@ class DefensiveCamperController(KesslerController):
             # Generate positions for the duplicates
             for dx in [-max_x, 0, max_x]:
                 for dy in [-max_y, 0, max_y]:
-                    if dx == 0 and dy == 0:
-                        continue  # Skip the original asteroid position
+                    #if dx == 0 and dy == 0:
+                    #    continue  # Skip the original asteroid position
                     new_pos = (orig_x + dx, orig_y + dy)
                     duplicate = asteroid.copy()
                     duplicate["position"] = new_pos
