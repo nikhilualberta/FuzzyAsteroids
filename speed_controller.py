@@ -18,7 +18,7 @@ import matplotlib as plt
 
 
 
-class ThreatController(KesslerController):
+class SpeedController(KesslerController):
     
     
         
@@ -28,11 +28,9 @@ class ThreatController(KesslerController):
         # self.targeting_control is the targeting rulebase, which is static in this controller.      
         # Declare variables
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
-        # ship_time = ctrl.Antecedent(np.arange(-2, 2.001, 0.001), 'ship_time')
+        ship_time = ctrl.Antecedent(np.arange(-2, 2.001, 0.001), 'ship_time')
         ship_speed = ctrl.Antecedent(np.arange(0.0, 240.001, 0.001), 'ship_speed') 
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
-        asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
-
         ship_turn = ctrl.Consequent(np.arange(-180,180,1), 'ship_turn') # Degrees due to Kessler
         ship_fire = ctrl.Consequent(np.arange(-1,1,0.1), 'ship_fire')
         ship_thrust = ctrl.Consequent(np.arange(-450, 450, 1), 'ship_thrust') 
@@ -69,23 +67,17 @@ class ThreatController(KesslerController):
         ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 450, 450])
         
         # Declare fuzzy sets for ship_time (how long it takes for the ship and asteroid to intercept)
-        # ship_time['NL'] = fuzz.trimf(ship_time.universe, [-5, -3.33, -1.67])
-        # ship_time['NM'] = fuzz.trimf(ship_time.universe, [-3.33, -1.67, 0])
-        # ship_time['NS'] = fuzz.trimf(ship_time.universe, [-1.67, 0, 1.67])
-        # ship_time['PS'] = fuzz.trimf(ship_time.universe, [0, 1.67, 3.33])
-        # ship_time['PL'] = fuzz.trimf(ship_time.universe, [1.67, 3.33, 5])
+        ship_time['NL'] = fuzz.trimf(ship_time.universe, [-5, -3.33, -1.67])
+        ship_time['NM'] = fuzz.trimf(ship_time.universe, [-3.33, -1.67, 0])
+        ship_time['NS'] = fuzz.trimf(ship_time.universe, [-1.67, 0, 1.67])
+        ship_time['PS'] = fuzz.trimf(ship_time.universe, [0, 1.67, 3.33])
+        ship_time['PL'] = fuzz.trimf(ship_time.universe, [1.67, 3.33, 5])
         
-        asteroid_distance['VC'] = fuzz.trimf(asteroid_distance.universe, [0, 35, 50])  # very close
-        asteroid_distance['C'] = fuzz.trimf(asteroid_distance.universe, [50, 90, 114])  # close
-        asteroid_distance['M'] = fuzz.trimf(asteroid_distance.universe, [114, 130, 152])  # medium
-        asteroid_distance['F'] = fuzz.trimf(asteroid_distance.universe, [152, 170, 190])  # far
-        asteroid_distance['VF'] = fuzz.trimf(asteroid_distance.universe, [190, 200, 228])  # very far
-        
-        ship_speed['Very Slow'] = fuzz.trimf(ship_speed.universe, [-5, 40, 80])
-        ship_speed['Slow'] = fuzz.trimf(ship_speed.universe, [40, 80, 120])
-        ship_speed['Moderate'] = fuzz.trimf(ship_speed.universe, [80, 120, 160])
-        ship_speed['Fast'] = fuzz.trimf(ship_speed.universe, [120, 160, 200])
-        ship_speed['Very Fast'] = fuzz.trimf(ship_speed.universe, [160, 200, 240])
+        ship_speed['NL'] = fuzz.trimf(ship_speed.universe, [-240, -260, -100])
+        ship_speed['NS'] = fuzz.trimf(ship_speed.universe, [-100,-60, -10])
+        ship_speed['Z'] = fuzz.trimf(ship_speed.universe, [-10, 5, 10])
+        ship_speed['PS'] = fuzz.trimf(ship_speed.universe, [10, 60, 100])
+        ship_speed['PL'] = fuzz.trimf(ship_speed.universe, [100, 160, 240])
 
                 
         #Declare each fuzzy rule
@@ -107,122 +99,51 @@ class ThreatController(KesslerController):
         
         # Threat rules
         
-        # Existing rules (including the ones from the previous response)
-        rule16 = ctrl.Rule(bullet_time['L'] & theta_delta['NL'] & (asteroid_distance['M'] | asteroid_distance['F'] | asteroid_distance['VF']), 
-                        (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
 
-        rule17 = ctrl.Rule(bullet_time['M'] & theta_delta['Z'] & asteroid_distance['C'], 
-                        (ship_turn['Z'], ship_fire['N'], ship_thrust['PS']))
+        
 
-        rule18 = ctrl.Rule(bullet_time['L'] & theta_delta['Z'] & (asteroid_distance['VF'] | asteroid_distance['F']), 
-                        (ship_turn['PS'], ship_fire['N'], ship_thrust['Z']))
-
-        rule19 = ctrl.Rule(bullet_time['L'] & theta_delta['PL'] & asteroid_distance['F'], 
-                        (ship_turn['PL'], ship_fire['N'], ship_thrust['NS']))
-
-        rule20 = ctrl.Rule(bullet_time['M'] & theta_delta['PS'] & asteroid_distance['VF'], 
-                        (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS']))
-
-        rule21 = ctrl.Rule(bullet_time['S'] & theta_delta['PL'] & asteroid_distance['C'], 
-                        (ship_turn['PL'], ship_fire['N'], ship_thrust['NL']))
-
-        rule22 = ctrl.Rule(bullet_time['S'] & theta_delta['PL'] & asteroid_distance['VC'], 
-                        (ship_turn['PL'], ship_fire['N'], ship_thrust['NL']))
-
-        rule23 = ctrl.Rule(bullet_time['S'] & theta_delta['NL'] & asteroid_distance['VC'], 
-                        (ship_turn['NL'], ship_fire['N'], ship_thrust['NL']))
-
-        # Additional rules for coverage
-        rule24 = ctrl.Rule(bullet_time['S'] & theta_delta['Z'] & asteroid_distance['M'], 
-                        (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS']))
-
-        rule25 = ctrl.Rule(bullet_time['L'] & theta_delta['PL'] & asteroid_distance['M'], 
-                        (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
+        # Rules
+        rule16 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['NL'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])) # we are moving slow intercept time is in the pass
+        rule17 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['PL'] | theta_delta['PS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
         
-        rule26 = ctrl.Rule(bullet_time['S'] & theta_delta['PL'] & asteroid_distance['VF'], 
-                        (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
-        
-        rule27 = ctrl.Rule(bullet_time['S'] & theta_delta['PS'] & (asteroid_distance['M'] | asteroid_distance['F'] | asteroid_distance['VF']), 
-                        (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS']))
-        
-        rule28 = ctrl.Rule(bullet_time['S'] & theta_delta['NS'] & (asteroid_distance['M'] | asteroid_distance['F'] | asteroid_distance['VF']), 
-                        (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS']))
-
-        rule29 = ctrl.Rule(bullet_time['S'] & theta_delta['PS'] & asteroid_distance['VC'], 
-                        (ship_turn['PS'], ship_fire['Y'], ship_thrust['NL']))
-        
-        rule30 = ctrl.Rule(bullet_time['S'] & theta_delta['NS'] & (asteroid_distance['M'] | asteroid_distance['F']), 
-                        (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS']))
-        
-        rule31 = ctrl.Rule(bullet_time['S'] & theta_delta['NS'] & (asteroid_distance['M'] | asteroid_distance['F']), 
-                        (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS']))
-        
-        rule32 = ctrl.Rule(bullet_time['S'] & theta_delta['PS'] & asteroid_distance['C'], 
-                (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS']))
-        
-        rule33 = ctrl.Rule(bullet_time['S'] & theta_delta['NS'] & asteroid_distance['VC'], 
-                (ship_turn['NS'], ship_fire['Y'], ship_thrust['NL']))
-        
-        rule34 = ctrl.Rule(bullet_time['S'] & theta_delta['NS'] & asteroid_distance['C'], 
-                (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS']))
-        
-        rule35 = ctrl.Rule(bullet_time['S'] & theta_delta['Z'], 
-                (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS']))
-        
-        rule36 = ctrl.Rule(bullet_time['S'] & (theta_delta['Z'] | theta_delta['NS'] | theta_delta['PS']) & asteroid_distance['VC'], 
-            (ship_turn['PS'], ship_fire['Y'], ship_thrust['NL']))
+        rule18 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['Z'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL'])) 
+        rule19 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['Z'] | theta_delta['PS'])  & (ship_time['NL'] | ship_time['NS']), (ship_turn['PS'], ship_fire['Y'], ship_thrust['PL']))
         
         
-        # rule1 = ctrl.Rule(bullet_time['S'] & (theta_delta['Z'] | theta_delta['NS'] | theta_delta['PS']) & asteroid_distance['VC'], 
-        #     (ship_turn['PS'], ship_fire['Y'], ship_thrust['NL']))
-
-
-
-
-
-
-        # # Rules
-        # rule16 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['NL'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])) # we are moving slow intercept time is in the pass
-        # rule17 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['PL'] | theta_delta['PS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
+        rule20 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['NL'] | theta_delta['NS']) &  ship_time['PS'], (ship_turn['NL'], ship_fire['Y'], ship_thrust['PL'])) #our ship speed is slow its coming for us and we are facing it thrust fast neg and shoot
+        rule21 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['PL'] | theta_delta['PS']) &  ship_time['PS'], (ship_turn['PL'], ship_fire['Y'], ship_thrust['PL']))
         
-        # rule18 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['Z'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL'])) 
-        # rule19 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['Z'] | theta_delta['PS'])  & (ship_time['NL'] | ship_time['NS']), (ship_turn['PS'], ship_fire['Y'], ship_thrust['PL']))
+        rule22 = ctrl.Rule(ship_speed['Very Slow'] & theta_delta['Z']  &  ship_time['PS'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL'])) 
+        rule23 = ctrl.Rule(ship_speed['Very Slow'] & theta_delta['Z']  &  ship_time['PS'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL']))
         
-        
-        # rule20 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['NL'] | theta_delta['NS']) &  ship_time['PS'], (ship_turn['NL'], ship_fire['Y'], ship_thrust['PL'])) #our ship speed is slow its coming for us and we are facing it thrust fast neg and shoot
-        # rule21 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['PL'] | theta_delta['PS']) &  ship_time['PS'], (ship_turn['PL'], ship_fire['Y'], ship_thrust['PL']))
-        
-        # rule22 = ctrl.Rule(ship_speed['Very Slow'] & theta_delta['Z']  &  ship_time['PS'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL'])) 
-        # rule23 = ctrl.Rule(ship_speed['Very Slow'] & theta_delta['Z']  &  ship_time['PS'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL']))
-        
-        # rule24 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['NL'] | theta_delta['NS']) &  ship_time['PL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])) 
-        # rule25 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['PL'] | theta_delta['PS']) &  ship_time['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
+        rule24 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['NL'] | theta_delta['NS']) &  ship_time['PL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])) 
+        rule25 = ctrl.Rule(ship_speed['Very Slow'] & (theta_delta['PL'] | theta_delta['PS']) &  ship_time['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
         
 
         
-        # rule26 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['NL'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
-        # rule27 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['PL'] | theta_delta['PS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
+        rule26 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['NL'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
+        rule27 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['PL'] | theta_delta['PS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
 
-        # rule28 = ctrl.Rule(ship_speed['Slow'] & theta_delta['Z']  & (ship_time['NL'] | ship_time['NS']), (ship_turn['Z'], ship_fire['Y'], ship_thrust['Z']))
-        # rule29 = ctrl.Rule(ship_speed['Slow'] & theta_delta['Z']  & (ship_time['NL'] | ship_time['NS']), (ship_turn['Z'], ship_fire['Y'], ship_thrust['Z']))
+        rule28 = ctrl.Rule(ship_speed['Slow'] & theta_delta['Z']  & (ship_time['NL'] | ship_time['NS']), (ship_turn['Z'], ship_fire['Y'], ship_thrust['Z']))
+        rule29 = ctrl.Rule(ship_speed['Slow'] & theta_delta['Z']  & (ship_time['NL'] | ship_time['NS']), (ship_turn['Z'], ship_fire['Y'], ship_thrust['Z']))
 
-        # rule30 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['NL'] | theta_delta['NS']) &  ship_time['PS'], (ship_turn['NL'], ship_fire['N'], ship_thrust['NL']))
-        # rule31 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['PL'] | theta_delta['PS']) &  ship_time['PS'], (ship_turn['PL'], ship_fire['N'], ship_thrust['NL']))
+        rule30 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['NL'] | theta_delta['NS']) &  ship_time['PS'], (ship_turn['NL'], ship_fire['N'], ship_thrust['NL']))
+        rule31 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['PL'] | theta_delta['PS']) &  ship_time['PS'], (ship_turn['PL'], ship_fire['N'], ship_thrust['NL']))
 
-        # rule32 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['Z'] | theta_delta['NS'])  &  ship_time['PS'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL']))
-        # rule33 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['Z'] | theta_delta['PS'])  &  ship_time['PS'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL']))
+        rule32 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['Z'] | theta_delta['NS'])  &  ship_time['PS'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL']))
+        rule33 = ctrl.Rule(ship_speed['Slow'] & (theta_delta['Z'] | theta_delta['PS'])  &  ship_time['PS'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL']))
         
-        # rule34 = ctrl.Rule(ship_speed['Moderate'] & (theta_delta['NL'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
-        # rule35 = ctrl.Rule(ship_speed['Moderate'] & (theta_delta['PL'] | theta_delta['PS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
+        rule34 = ctrl.Rule(ship_speed['Moderate'] & (theta_delta['NL'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
+        rule35 = ctrl.Rule(ship_speed['Moderate'] & (theta_delta['PL'] | theta_delta['PS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
         
-        # rule38 = ctrl.Rule(ship_speed['Moderate'] & theta_delta['NS'] & ship_time['PS'], (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
-        # rule39 = ctrl.Rule(ship_speed['Moderate'] & (theta_delta['PL'] | theta_delta['PS']) & ship_time['NS'], (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
+        rule38 = ctrl.Rule(ship_speed['Moderate'] & theta_delta['NS'] & ship_time['PS'], (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
+        rule39 = ctrl.Rule(ship_speed['Moderate'] & (theta_delta['PL'] | theta_delta['PS']) & ship_time['NS'], (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
 
 
-        # rule36 = ctrl.Rule(ship_speed['Very Fast'] & (theta_delta['NL'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
-        # rule37 = ctrl.Rule(ship_speed['Very Fast'] & (theta_delta['PL'] | theta_delta['PS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
+        rule36 = ctrl.Rule(ship_speed['Very Fast'] & (theta_delta['NL'] | theta_delta['NS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['NL'], ship_fire['N'], ship_thrust['Z']))
+        rule37 = ctrl.Rule(ship_speed['Very Fast'] & (theta_delta['PL'] | theta_delta['PS']) & (ship_time['NL'] | ship_time['NS']), (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
 
-        threat_rules = [rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15, rule16, rule17, rule18, rule19, rule20, rule21, rule22, rule23, rule24, rule25, rule26, rule27, rule28, rule29, rule30, rule31, rule32, rule33, rule34, rule35 , rule36] # rule37]
+        threat_rules = [rule16, rule17, rule18, rule19, rule20, rule21, rule22, rule23, rule24, rule25, rule26, rule27, rule28, rule29, rule30, rule31, rule32, rule33, rule34, rule35, rule36, rule37]
      
         #DEBUG
         #bullet_time.view()
@@ -344,7 +265,7 @@ class ThreatController(KesslerController):
         cos_my_theta2 = math.cos(my_theta2)
         # Need the speeds of the asteroid and bullet. speed * time is distance to the intercept point
         asteroid_vel = math.sqrt(closest_asteroid["aster"]["velocity"][0]**2 + closest_asteroid["aster"]["velocity"][1]**2)
-        bullet_speed = 800 + ship_state['speed']# Hard-coded bullet speed from bullet.py
+        bullet_speed = 800 # Hard-coded bullet speed from bullet.py
         
         # Determinant of the quadratic formula b^2-4ac
         targ_det = (-2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2)**2 - (4*(asteroid_vel**2 - bullet_speed**2) * closest_asteroid["dist"])
@@ -384,14 +305,14 @@ class ThreatController(KesslerController):
         shooting.input['bullet_time'] = bullet_t
         shooting.input['theta_delta'] = shooting_theta
     
+        
+        
         shooting.compute()
         
         # threat.input['bullet_time'] = bullet_t
         threat.input['theta_delta'] = shooting_theta
-        threat.input['bullet_time'] = bullet_t
-        threat.input['asteroid_distance'] = closest_asteroid['dist'] - closest_asteroid['aster']['radius']
-        # threat.input['ship_time'] = ship_t
-        # threat.input['ship_speed'] = ship_state['speed']
+        threat.input['ship_time'] = ship_t
+        threat.input['ship_speed'] = ship_state['speed']
         threat.compute()
         
         # Get the defuzzified outputs
@@ -423,4 +344,4 @@ class ThreatController(KesslerController):
 
     @property
     def name(self) -> str:
-        return "Threat Controller"
+        return "Speed Controller"

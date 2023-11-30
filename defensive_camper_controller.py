@@ -28,6 +28,11 @@ class DefensiveCamperController(KesslerController):
         # Declare variables
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
+        asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
+        ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed') 
+        current_ship_thrust = ctrl.Antecedent(np.arange(-450, 450, 1), 'current_ship_thrust') 
+        ship_pos_x = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_x') 
+        ship_pos_y = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_y') 
 
         ship_turn = ctrl.Consequent(np.arange(-180,180,1), 'ship_turn') # Degrees due to Kessler
         ship_fire = ctrl.Consequent(np.arange(-1,1,0.1), 'ship_fire')
@@ -62,25 +67,92 @@ class DefensiveCamperController(KesslerController):
         ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-112.5, 0, 112.5])
         ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [112.5, 225, 337.5])
         ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 450, 450])
+        
+        current_ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-450, -450, -337.5])
+        current_ship_thrust['NS'] = fuzz.trimf(ship_thrust.universe, [-337.5, -225, -112.5])
+        current_ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-112.5, 0, 112.5])
+        current_ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [112.5, 225, 337.5])
+        current_ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 450, 450])
+        
+        ship_speed['NL'] = fuzz.trimf(ship_speed.universe, [-240, -160, -100])
+        ship_speed['NS'] = fuzz.trimf(ship_speed.universe, [-100,-60, -10])
+        ship_speed['Z'] = fuzz.trimf(ship_speed.universe, [-10, 5, 10])
+        ship_speed['PS'] = fuzz.trimf(ship_speed.universe, [10, 60, 100])
+        ship_speed['PL'] = fuzz.trimf(ship_speed.universe, [100, 160, 240])
+        
+        buffer = 70
+        min_x = 0
+        min_y = 0
+        max_x = 800
+        max_y = 800
+        
+        ship_pos_x['close_to_left'] = fuzz.trimf(ship_pos_x.universe, [min_x, min_x + buffer, min_x + buffer])
+        ship_pos_x['close_to_right'] = fuzz.trimf(ship_pos_y.universe, [max_x - buffer, max_x - buffer, max_x])
+
+        # Define membership functions for y
+        ship_pos_y['close_to_top'] = fuzz.trimf( ship_pos_y.universe, [max_y - buffer * 2, max_y - buffer, max_y])
+        ship_pos_y['close_to_bottom'] = fuzz.trimf( ship_pos_y.universe, [min_y, min_y + buffer, min_y + buffer * 2])
+        
+        position_control_rules = [
+            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['NL'], (ship_fire['N'], ship_thrust['PL'])),
+            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['NS'], (ship_fire['N'], ship_thrust['PL'])),
+            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['Z'], (ship_fire['N'], ship_thrust['PL'])),
+            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['PL'], (ship_fire['N'], ship_thrust['PL'])),
+            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['PS'], (ship_fire['N'], ship_thrust['PL'])),
+            
+        ]
 
         #Declare each fuzzy rule
-        rule1 = ctrl.Rule(bullet_time['L'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL']))
-        rule2 = ctrl.Rule(bullet_time['L'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL']))
-        rule3 = ctrl.Rule(bullet_time['L'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PL']))
-        rule4 = ctrl.Rule(bullet_time['L'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PL']))
-        rule5 = ctrl.Rule(bullet_time['L'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
+        defensive_camper_rules = [
+            ctrl.Rule(bullet_time['L'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
+            ctrl.Rule(bullet_time['L'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL'])),
+            ctrl.Rule(bullet_time['L'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PL'])),
+            ctrl.Rule(bullet_time['L'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PL'])),
+            ctrl.Rule(bullet_time['L'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL'])),
 
-        rule6 = ctrl.Rule(bullet_time['M'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PS']))
-        rule7 = ctrl.Rule(bullet_time['M'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS']))
-        rule8 = ctrl.Rule(bullet_time['M'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PS']))
-        rule9 = ctrl.Rule(bullet_time['M'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS']))
-        rule10 = ctrl.Rule(bullet_time['M'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PS']))
+            ctrl.Rule(bullet_time['M'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PS'])),
+            ctrl.Rule(bullet_time['M'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS'])),
+            ctrl.Rule(bullet_time['M'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PS'])),
+            ctrl.Rule(bullet_time['M'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS'])),
+            ctrl.Rule(bullet_time['M'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PS'])),
 
-        rule11 = ctrl.Rule(bullet_time['S'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['NS']))
-        rule12 = ctrl.Rule(bullet_time['S'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS']))
-        rule13 = ctrl.Rule(bullet_time['S'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NS']))
-        rule14 = ctrl.Rule(bullet_time['S'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS']))
-        rule15 = ctrl.Rule(bullet_time['S'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['NS']))
+            ctrl.Rule(bullet_time['S'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['NS'])),
+            ctrl.Rule(bullet_time['S'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule(bullet_time['S'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule(bullet_time['S'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule(bullet_time['S'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['NS']))  
+        ]
+        
+        thrust_control_rules = [
+            #if we are moving slowly enough just continue with current thrust
+            ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['PL'])), # We are moving very slowly so let them continue
+            ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['PS'])), # We are moving very slowly so let them continue
+            ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['Z'])),
+            ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['NS'])), # We are moving very slowly so let them continue
+            ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['NL'])), # We are moving very slowly so let them continue
+            
+            
+            ctrl.Rule(current_ship_thrust['NS'] & ship_speed['NL'], (ship_thrust['PS'])), #We are already moving very fast, slow down
+            ctrl.Rule(current_ship_thrust['PS'] & ship_speed['PL'], (ship_thrust['NS'])), #We are already moving very fast, slow down
+           
+            
+            ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['NL'] | ship_speed['NS']), (ship_thrust['PS'])), #slow down
+            ctrl.Rule(current_ship_thrust['NL'] & ship_speed['Z'], (ship_thrust['NL'])), # We are moving very slowly so let them continue
+            ctrl.Rule(current_ship_thrust['NL'] & ship_speed['PL'], (ship_thrust['NL'])), #slow down
+            ctrl.Rule(current_ship_thrust['NL'] & ship_speed['PS'], (ship_thrust['NL'])), #slow down
+
+            ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['NL'] | ship_speed['NS']), (ship_thrust['PL'])), #slow down
+            ctrl.Rule(current_ship_thrust['PL'] & ship_speed['PL'], (ship_thrust['NL'])), #slow down
+            ctrl.Rule(current_ship_thrust['PL'] & ship_speed['PS'], (ship_thrust['NL'])), #slow down
+            
+            ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['PL'])), #slow down
+            ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['PS'])), #slow down
+            ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['Z'])), #slow down
+            ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NS'])), #slow down
+            ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NL'])) #slow down
+
+        ]
+        
 
         #DEBUG
         #bullet_time.view()
@@ -91,23 +163,19 @@ class DefensiveCamperController(KesslerController):
         # Declare the fuzzy controller, add the rules 
         # This is an instance variable, and thus available for other methods in the same object. See notes.                         
         # self.targeting_control = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15])
-             
+            
+        self.position_conrol = ctrl.ControlSystem()  
+        for i in position_control_rules:
+            self.position_conrol.addrule(i)
+         
         self.targeting_control = ctrl.ControlSystem()
-        self.targeting_control.addrule(rule1)
-        self.targeting_control.addrule(rule2)
-        self.targeting_control.addrule(rule3)
-        self.targeting_control.addrule(rule4)
-        self.targeting_control.addrule(rule5)
-        self.targeting_control.addrule(rule6)
-        self.targeting_control.addrule(rule7)
-        self.targeting_control.addrule(rule8)
-        self.targeting_control.addrule(rule9)
-        self.targeting_control.addrule(rule10)
-        self.targeting_control.addrule(rule11)
-        self.targeting_control.addrule(rule12)
-        self.targeting_control.addrule(rule13)
-        self.targeting_control.addrule(rule14)
-        self.targeting_control.addrule(rule15)
+        for i in defensive_camper_rules:
+            self.targeting_control.addrule(i)
+            
+        self.thurst_control = ctrl.ControlSystem()
+        for i in thrust_control_rules:
+            self.thurst_control.addrule(i)
+        
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool]:
         """
@@ -201,6 +269,10 @@ class DefensiveCamperController(KesslerController):
         # Wrap all angles to (-pi, pi)
         shooting_theta = (shooting_theta + math.pi) % (2 * math.pi) - math.pi
         
+        
+        # position Controller to stay near center
+    
+        
         # Pass the inputs to the rulebase and fire it
         shooting = ctrl.ControlSystemSimulation(self.targeting_control,flush_after_run=1)
         
@@ -218,6 +290,25 @@ class DefensiveCamperController(KesslerController):
             fire = False
                
         # And return your three outputs to the game simulation. Controller algorithm complete.
+        
+        # position = ctrl.ControlSystemSimulation(self.position_conrol,flush_after_run=1)
+        # if(ship_pos_x >= 730 or ship_pos_x <= 70):
+        #     position.input['ship_pos_x'] = ship_pos_x
+        #     # position.input['ship_pos_y'] = ship_pos_y
+        #     position.input['theta_delta'] = shooting_theta
+        
+        #     position.compute()
+        #     # turn_rate = position.output['ship_turn']
+        #     thrust = position.output['ship_thrust']
+        
+        # this controller will look at out current speed and thurst and adjust so we dont uncontrollably runaway
+        thurst_controller = ctrl.ControlSystemSimulation(self.thurst_control,flush_after_run=1)
+        
+        thurst_controller.input['ship_speed'] = ship_state['speed']
+        thurst_controller.input['current_ship_thrust'] = thrust     
+        thurst_controller.compute()   
+        
+        thrust = thurst_controller.output['ship_thrust']
         
         self.eval_frames +=1
         #DEBUG
