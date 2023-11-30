@@ -180,12 +180,12 @@ class DefensiveCamperController(KesslerController):
         
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool]:
-        print('Self:')
-        print(self)
-        print('Game state:')
-        print(game_state)
-        print('Ship state:')
-        print(ship_state)
+        #print('Self:')
+        #print(self)
+        #print('Game state:')
+        #print(game_state)
+        #print('Ship state:')
+        #print(ship_state)
         """
         Method processed each time step by this controller.
         """
@@ -342,7 +342,7 @@ class DefensiveCamperController(KesslerController):
         # Get the defuzzified outputs
         turn_rate = shooting.output['ship_turn']
         thrust = shooting.output['ship_thrust']
-        if shooting.output['ship_fire'] >= 0:
+        if shooting.output['ship_fire'] >= 0 and not ship_state['is_respawning']:
             fire = True
         else:
             fire = False
@@ -367,11 +367,12 @@ class DefensiveCamperController(KesslerController):
         thurst_controller.compute()   
         
         thrust = thurst_controller.output['ship_thrust']
-        
+        #if ship_state['is_respawning']:
+        #    print('IS RESPAWNING')
         self.eval_frames +=1
         #DEBUG
         #print(thrust, bullet_t, shooting_theta, turn_rate, fire)
-        print("thrust is " + str(thrust) + "\n" + "turn rate is " + str(turn_rate) + "\n" + "fire is " + str(fire) + "\n")
+        #print("thrust is " + str(thrust) + "\n" + "turn rate is " + str(turn_rate) + "\n" + "fire is " + str(fire) + "\n")
         return thrust, turn_rate, fire
 
     @property
