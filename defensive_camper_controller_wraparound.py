@@ -14,6 +14,7 @@ from skfuzzy import control as ctrl
 import math
 import numpy as np
 import matplotlib as plt
+import time
 
 
 #TODO
@@ -156,8 +157,8 @@ class DefensiveCamperControllerWraparound(KesslerController):
 
             return duplicates
 
-        # Our field is 800x800 in size
-        max_x = 800
+        # Our field is 1000x800 in size
+        max_x = 1000
         max_y = 800
 
         # Find the closest asteroid (disregards asteroid velocity)
@@ -165,7 +166,6 @@ class DefensiveCamperControllerWraparound(KesslerController):
         ship_pos_y = ship_state["position"][1]
         closest_asteroid = None
         closest_asteroid_wraparound = None
-
         for a in game_state["asteroids"]:
             # Duplicate asteroid positions for wraparound
             duplicated_asteroids = duplicate_asteroids_for_wraparound(a, max_x, max_y)
