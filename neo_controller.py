@@ -23,7 +23,7 @@ import copy
 time_delta = 1/30
 
 # Function to duplicate asteroid positions for wraparound
-def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y):
+def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y, pattern='surround'):
     # Original position
     duplicates = [asteroid]
 
@@ -31,10 +31,17 @@ def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y):
     orig_x, orig_y = asteroid["position"]
 
     # Generate positions for the duplicates
-    for dx in [-max_x, 0, max_x]:
-        for dy in [-max_y, 0, max_y]:
-            if dx == 0 and dy == 0:
-                continue  # Skip the original asteroid position
+    for col, dx in enumerate([-max_x, 0, max_x]):
+        for row, dy in enumerate([-max_y, 0, max_y]):
+            if pattern == 'cross':
+                if (col, row) in [(0, 0), (0, 2), (2, 0), (2, 2)]:
+                    continue
+            elif pattern == 'stack':
+                if (col, row) in [(0, 0), (0, 1), (0, 2), (2, 0), (2, 1), (2, 2)]:
+                    continue
+            elif pattern == 'none':
+                if (col, row) != (0, 0):
+                    continue
             new_pos = (orig_x + dx, orig_y + dy)
             duplicate = asteroid.copy()
             duplicate["position"] = new_pos
@@ -42,7 +49,7 @@ def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y):
 
     return duplicates
 
-def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_simulate = 10.0):
+def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_simulate = 4.0):
     #print("Shot at asteroids:")
     #print(shot_at_asteroids)
     game_state['map_size']
@@ -54,6 +61,8 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
     min_y = 0
     max_x = game_state['map_size'][0]
     max_y = game_state['map_size'][1]
+    #inner_counter = 0
+    #inner_counter2 = 0
 
     def check_coordinate_bounds(x, y):
         if min_x <= x <= max_x and min_y <= y <= max_y:
@@ -75,19 +84,19 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
         # If we can't turn in one second far enough to shoot it before it goes off screen, don't even bother dude
         turn_rate_range = 180.0 # How many degrees we can turn in 1 second
         timesteps_from_now = 0.0 # We allow fractional timesteps
-        iterations = 10
+        iterations = 5
         max_bullet_time = 200
         ship_heading = ship_state["heading"]
         for it in range(iterations):
             if timesteps_from_now > max_bullet_time:
                 # Fuggetaboutit, we ain't hunting down this asteroid until it loops around at least
                 break
-            print(f"Iteration {it}, current total timesteps from now: {timesteps_from_now}")
+            #print(f"Iteration {it}, current total timesteps from now: {timesteps_from_now}")
             _, shooting_theta, _, _ = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_heading)
             
             shooting_theta_deg = shooting_theta * 180.0 / math.pi
             shooting_theta_deg = abs(shooting_theta_deg)
-            print(shooting_theta_deg / (turn_rate_range * time_delta))
+            
             # Update the ship heading
             ship_heading += shooting_theta_deg
             # Keep the angle within (-180, 180)
@@ -95,9 +104,11 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
                 ship_heading -= 360.0
             while ship_heading < 0:
                 ship_heading += 360.0
+            #print(f"Ship heading: {ship_heading}")
             number_of_timesteps_itll_take_to_turn = shooting_theta_deg / (turn_rate_range * time_delta)
-            
             timesteps_from_now += number_of_timesteps_itll_take_to_turn
+            if number_of_timesteps_itll_take_to_turn < 1:
+                break
         
         if check_intercept_bounds(candidate_asteroid, math.ceil(timesteps_from_now)):
             # If at that future time, we can shoot and still intercept the bullet...
@@ -121,17 +132,21 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
     simulated_asteroids = []
     # Make our own copy of the asteroids list (with duplicates), and also add in a variable to keep track of how many timesteps we still have yet to simulate
     for ast in asteroids:
-        duplicated_asteroids = duplicate_asteroids_for_wraparound(ast, max_x, max_y)
+        duplicated_asteroids = duplicate_asteroids_for_wraparound(ast, max_x, max_y, 'stack')
         for a in duplicated_asteroids:
             simulated_asteroids.append({
                 'position': a['position'],
                 'velocity': a['velocity'],
                 'radius': a['radius'],
-                'num_timesteps_left_to_simulate': time_to_simulate / time_delta
+                'num_timesteps_left_to_simulate': math.ceil(time_to_simulate / time_delta)
             })
     closest_asteroid = None
     breakout_flag = False
-    for i in range(math.ceil(time_to_simulate / time_delta)):
+    #for i in range(math.ceil(time_to_simulate / time_delta)):
+    total_asteroids_to_simulate = len(simulated_asteroids)
+    num_asteroids_done_simulation = 0
+    while True:
+        #print(simulated_asteroids)
         if breakout_flag:
             break
         for ind, a in enumerate(simulated_asteroids):
@@ -139,9 +154,24 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
             if not check_collision(a['position'][0], a['position'][1], a['radius'], ship_x, ship_y, ship_radius + 300):
                 speedup_factor = 30 # Jump by 30 steps, which is 1 second
             else:
-                speedup_factor = 1
+                speedup_factor = 1 # Only simulate a single frame for accuracy, since the asteroid is close enough to the ship that it might hit it
+            
+            # Check for simulation complete condition
+            if simulated_asteroids[ind]['num_timesteps_left_to_simulate'] is not None:
+                if simulated_asteroids[ind]['num_timesteps_left_to_simulate'] <= 0:
+                    # Done simulating this asteroid
+                    num_asteroids_done_simulation += 1
+                    simulated_asteroids[ind]['num_timesteps_left_to_simulate'] = None
+                    continue
+                else:
+                    simulated_asteroids[ind]['num_timesteps_left_to_simulate'] -= speedup_factor
+            if num_asteroids_done_simulation == total_asteroids_to_simulate:
+                breakout_flag = True
+                break
+            #inner_counter += 1
             # Get the next position
             a['position'] = [pos + speedup_factor*v*time_delta for pos, v in zip(a['position'], a['velocity'])]
+            
             # Wraparound the bounds
             while a['position'][0] > max_x:
                 a['position'][0] -= max_x
@@ -157,6 +187,7 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
                 #print(closest_asteroid)
                 breakout_flag = True
                 break
+    #print(f"Inner counter: {inner_counter}")
     #print(len(simulated_asteroids), len(asteroids))
     if closest_asteroid is not None:
         print(f"Asteroid getting close, <={time_to_simulate} seconds away. Defend!")
@@ -183,7 +214,7 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
     ship_heading = ship_state['heading']
     print(f"Num asteroids: {len(asteroids)}, num shot at already: {len(shot_at_asteroids)}")
     for a_no_wraparound in asteroids:
-        duplicated_asteroids = duplicate_asteroids_for_wraparound(a_no_wraparound, max_x, max_y)
+        duplicated_asteroids = duplicate_asteroids_for_wraparound(a_no_wraparound, max_x, max_y, 'cross')
         for a in duplicated_asteroids:
             theta = math.atan2(a['position'][1] - ship_y, a['position'][0] - ship_x)
             
@@ -192,7 +223,7 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
 
             # Wrap all angles to (-pi, pi)
             curr_angular_dist = abs((shooting_theta + math.pi) % (2 * math.pi) - math.pi)
-
+            #inner_counter2 += 1
             if curr_angular_dist < closest_asteroid_angular_dist and check_intercept_feasibility(a):
                 if (a["velocity"][0], a["velocity"][1], a["radius"]) not in shot_at_asteroids:
                     closest_asteroid = a
@@ -200,6 +231,7 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
                 elif (a["velocity"][0], a["velocity"][1], a["radius"]) in shot_at_asteroids:
                     #print('THIS ASTEROID ALREADY IN LIST!!!')
                     pass
+    #print(f"Inner counter 2: {inner_counter2}")
     if closest_asteroid is None:
         closest_asteroid = asteroids[0]
     return closest_asteroid
@@ -468,32 +500,6 @@ class NeoController(KesslerController):
         
         # Goal: demonstrate processing of game state, fuzzy controller, intercept computation 
         # Intercept-point calculation derived from the Law of Cosines, see notes for details and citation.
-
-        # Function to compute the wrapped distance between two points in one dimension
-        def wrapped_distance(coord1, coord2, max_coord):
-            direct_dist = abs(coord1 - coord2)
-            wrap_dist = min(coord1, coord2) + max_coord - max(coord1, coord2)
-            return min(direct_dist, wrap_dist)
-
-        # Function to duplicate asteroid positions for wraparound
-        def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y):
-            # Original position
-            duplicates = [asteroid]
-
-            # Original X and Y coordinates
-            orig_x, orig_y = asteroid["position"]
-
-            # Generate positions for the duplicates
-            for dx in [-max_x, 0, max_x]:
-                for dy in [-max_y, 0, max_y]:
-                    #if dx == 0 and dy == 0:
-                    #    continue  # Skip the original asteroid position
-                    new_pos = (orig_x + dx, orig_y + dy)
-                    duplicate = asteroid.copy()
-                    duplicate["position"] = new_pos
-                    duplicates.append(duplicate)
-
-            return duplicates
 
         # Field size is hardcoded in map_size_x and map_size_y
 
