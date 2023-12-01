@@ -96,7 +96,7 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
     
     def check_collision(a_x, a_y, a_r, b_x, b_y, b_r):
         #print(a_x, a_y, a_r, b_x, b_y, b_r)
-        collision_fudge_factor = 1.15
+        collision_fudge_factor = 1.03
         if (a_x - b_x)**2 + (a_y - b_y)**2 <= collision_fudge_factor*(a_r + b_r)**2:
             return True
         else:
@@ -579,6 +579,7 @@ class NeoController(KesslerController):
                 self.fire_on_frames.add(self.eval_frames + 1)
         elif self.eval_frames in self.fire_on_frames and ship_state['is_respawning']:
             self.fire_on_frames.add(self.eval_frames + 1)
+            fire = False
         else:
             fire = False
         #fire = self.eval_frames % 5 == 0
