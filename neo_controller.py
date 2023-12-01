@@ -74,22 +74,24 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
         # Check whether we have enough time to turn our camera to aim at it, and still intercept it within bounds.
         # If we can't turn in one second far enough to shoot it before it goes off screen, don't even bother dude
         turn_rate_range = 180.0 # How many degrees we can turn in 1 second
-        timesteps_from_now = 0
-        _, shooting_theta, _, _ = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_state["heading"])
+        timesteps_from_now = 0.0 # We allow fractional timesteps
+        iterations = 10
+        max_bullet_time = 200
+        for it in range(iterations):
+            if timesteps_from_now > max_bullet_time:
+                # Fuggetaboutit, we ain't hunting down this asteroid until it loops around at least
+                break
+            print(f"Iteration {it}, current total timesteps from now: {timesteps_from_now}")
+            _, shooting_theta, _, _ = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_state["heading"])
+            
+            shooting_theta_deg = shooting_theta * 180.0 / math.pi
+            shooting_theta_deg = abs(shooting_theta_deg)
+            print(shooting_theta_deg / (turn_rate_range * time_delta))
+            number_of_timesteps_itll_take_to_turn = shooting_theta_deg / (turn_rate_range * time_delta)
+            
+            timesteps_from_now += number_of_timesteps_itll_take_to_turn
         
-        shooting_theta_deg = shooting_theta * 180.0 / math.pi
-        shooting_theta_deg = abs(shooting_theta_deg)
-        number_of_timesteps_itll_take_to_turn_iteration1 = math.ceil(shooting_theta_deg / (turn_rate_range * time_delta))
-        
-        timesteps_from_now += number_of_timesteps_itll_take_to_turn_iteration1
-        _, shooting_theta, intercept_x, intercept_y = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_state["heading"])
-        
-        shooting_theta_deg = shooting_theta * 180.0 / math.pi
-        shooting_theta_deg = abs(shooting_theta_deg)
-        number_of_timesteps_itll_take_to_turn_iteration2 = math.ceil(shooting_theta_deg / (turn_rate_range * time_delta))
-        print(f"it1: {number_of_timesteps_itll_take_to_turn_iteration1}, it2: {number_of_timesteps_itll_take_to_turn_iteration2}")
-        timesteps_from_now += number_of_timesteps_itll_take_to_turn_iteration2
-        if check_intercept_bounds(candidate_asteroid, timesteps_from_now):
+        if check_intercept_bounds(candidate_asteroid, math.ceil(timesteps_from_now)):
             # If at that future time, we can shoot and still intercept the bullet...
             # Iterate once more to see whether we can hit it after we turn
             return True
