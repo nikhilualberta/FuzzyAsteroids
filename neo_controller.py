@@ -142,7 +142,7 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
     closest_asteroid = None
     closest_asteroid_angular_dist = 10000000
     ship_heading = ship_state['heading']
-    
+    print(f"Num asteroids: {len(asteroids)}, num shot at already: {len(shot_at_asteroids)}")
     for a_no_wraparound in asteroids:
         duplicated_asteroids = duplicate_asteroids_for_wraparound(a_no_wraparound, max_x, max_y)
         for a in duplicated_asteroids:
@@ -568,9 +568,11 @@ class NeoController(KesslerController):
         if self.eval_frames in self.fire_on_frames and not ship_state['is_respawning']:
             if self.eval_frames - self.last_time_fired >= 5:
                 # Our firing cooldown has ran out, and we can fire. We can only shoot once every 5 frames.
+                self.last_time_fired = self.eval_frames
                 fire = True
                 self.fire_on_frames.remove(self.eval_frames)
-                self.shot_at_asteroids[(closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], closest_asteroid["radius"])] = math.ceil(bullet_t / time_delta)
+                if (closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], closest_asteroid["radius"]) not in self.shot_at_asteroids:
+                    self.shot_at_asteroids[(closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], closest_asteroid["radius"])] = math.ceil(bullet_t / time_delta)
             else:
                 fire = False
                 # Try to fire on the next frame
@@ -582,8 +584,8 @@ class NeoController(KesslerController):
         #fire = self.eval_frames % 5 == 0
         # List to hold keys to be removed
         keys_to_remove = []
-        print(len(self.shot_at_asteroids))
-        print(self.eval_frames)
+        #print(len(self.shot_at_asteroids))
+        #print(self.eval_frames)
         print(self.shot_at_asteroids)
         # Iterate through the dictionary items
         for key, value in self.shot_at_asteroids.items():
