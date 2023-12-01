@@ -68,31 +68,33 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
 
     def check_intercept_feasibility(candidate_asteroid):
         if not check_intercept_bounds(candidate_asteroid):
-            # If we can shoot at this instant and it'll still be out of bounds, don't bother
+            # If we shoot at this instant and it'll still be out of bounds, don't bother
             return False
-        # Intercept is within bounds, but only if we shoot at this instant!
-        # Check whether we have enough time to turn our camera to aim at it, and still intercept it within bounds:
-        turn_rate_range = 180.0 # How many degrees we can turn in 1 second
+        # Intercept is within bounds, but only guaranteed if we shoot at this instant!
+        # Check whether we have enough time to turn our camera to aim at it, and still intercept it within bounds.
         # If we can't turn in one second far enough to shoot it before it goes off screen, don't even bother dude
+        turn_rate_range = 180.0 # How many degrees we can turn in 1 second
         timesteps_from_now = 0
         _, shooting_theta, _, _ = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_state["heading"])
+        
         shooting_theta_deg = shooting_theta * 180.0 / math.pi
         shooting_theta_deg = abs(shooting_theta_deg)
-        number_of_timesteps_itll_take_to_turn = math.ceil(shooting_theta_deg / (turn_rate_range * time_delta))
-        while True:
-            timesteps_from_now += number_of_timesteps_itll_take_to_turn
-            _, shooting_theta, intercept_x, intercept_y = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + 2 * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + 2 * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_state["heading"])
-            if check_intercept_bounds(candidate_asteroid, timesteps_from_now):
-                # If at that future time, we can shoot and still intercept the bullet...
-
-                # Screw the further iterated infinity math. Let's just return True and call it a freaking day
-                return True
-                _, shooting_theta, _, _ = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_state["heading"])
-                shooting_theta_deg = shooting_theta * 180.0 / math.pi
-                shooting_theta_deg = abs(shooting_theta_deg)
-                number_of_timesteps_itll_take_to_turn = math.ceil(shooting_theta_deg / (turn_rate_range * time_delta))
-            else:
-                break
+        number_of_timesteps_itll_take_to_turn_iteration1 = math.ceil(shooting_theta_deg / (turn_rate_range * time_delta))
+        
+        timesteps_from_now += number_of_timesteps_itll_take_to_turn_iteration1
+        _, shooting_theta, intercept_x, intercept_y = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_state["heading"])
+        
+        shooting_theta_deg = shooting_theta * 180.0 / math.pi
+        shooting_theta_deg = abs(shooting_theta_deg)
+        number_of_timesteps_itll_take_to_turn_iteration2 = math.ceil(shooting_theta_deg / (turn_rate_range * time_delta))
+        print(f"it1: {number_of_timesteps_itll_take_to_turn_iteration1}, it2: {number_of_timesteps_itll_take_to_turn_iteration2}")
+        timesteps_from_now += number_of_timesteps_itll_take_to_turn_iteration2
+        if check_intercept_bounds(candidate_asteroid, timesteps_from_now):
+            # If at that future time, we can shoot and still intercept the bullet...
+            # Iterate once more to see whether we can hit it after we turn
+            return True
+        else:
+            return False
     
     def check_collision(a_x, a_y, a_r, b_x, b_y, b_r):
         #print(a_x, a_y, a_r, b_x, b_y, b_r)
@@ -190,7 +192,8 @@ def calculate_interception(ship_pos_x, ship_pos_y, asteroid_pos_x, asteroid_pos_
     asteroid_dist = math.sqrt((ship_pos_x - asteroid_pos_x)**2 + (ship_pos_y - asteroid_pos_y)**2)
     targ_det = (-2 * asteroid_dist * asteroid_vel * cos_my_theta2)**2 - (4*(asteroid_vel**2 - bullet_speed**2) * asteroid_dist**2)
     if targ_det < 0:
-        targ_det = 0
+        # There is no intercept. Return a fake intercept
+        return 100000, 100000, -100, -100
     # Combine the Law of Cosines with the quadratic formula for solve for intercept time. Remember, there are two values produced.
     intrcpt1 = ((2 * asteroid_dist * asteroid_vel * cos_my_theta2) + math.sqrt(targ_det)) / (2 * (asteroid_vel**2 - bullet_speed**2))
     intrcpt2 = ((2 * asteroid_dist * asteroid_vel * cos_my_theta2) - math.sqrt(targ_det)) / (2 * (asteroid_vel**2 - bullet_speed**2))
@@ -563,7 +566,7 @@ class NeoController(KesslerController):
         else:
             self.fire_on_frames.add(self.eval_frames + 1)
             turn_rate = sign * shooting_theta_deg / time_delta
-            print(f'SNAP! Turn rate: {turn_rate}')
+            #print(f'SNAP! Turn rate: {turn_rate}')
 
         if self.eval_frames in self.fire_on_frames and not ship_state['is_respawning']:
             if self.eval_frames - self.last_time_fired >= 5:
@@ -587,7 +590,7 @@ class NeoController(KesslerController):
         keys_to_remove = []
         #print(len(self.shot_at_asteroids))
         #print(self.eval_frames)
-        print(self.shot_at_asteroids)
+        #print(self.shot_at_asteroids)
         # Iterate through the dictionary items
         for key, value in self.shot_at_asteroids.items():
             # Decrease each value by 1
