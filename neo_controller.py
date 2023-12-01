@@ -42,7 +42,7 @@ def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y):
 
     return duplicates
 
-def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_simulate = 4.0):
+def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_simulate = 10.0):
     #print("Shot at asteroids:")
     #print(shot_at_asteroids)
     game_state['map_size']
@@ -106,9 +106,10 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
         else:
             return False
     
+    # We're gonna simulate the game to detect imminent collisions
     def check_collision(a_x, a_y, a_r, b_x, b_y, b_r):
         #print(a_x, a_y, a_r, b_x, b_y, b_r)
-        collision_fudge_factor = 1.03
+        collision_fudge_factor = 1.02
         if (a_x - b_x)**2 + (a_y - b_y)**2 <= collision_fudge_factor*(a_r + b_r)**2:
             return True
         else:
@@ -116,21 +117,47 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
 
     asteroids = game_state['asteroids']
     ship_radius = ship_state['radius']
-    simulated_asteroids = copy.deepcopy(asteroids)
+    #simulated_asteroids = copy.deepcopy(asteroids)
+    simulated_asteroids = []
+    # Make our own copy of the asteroids list (with duplicates), and also add in a variable to keep track of how many timesteps we still have yet to simulate
+    for ast in asteroids:
+        duplicated_asteroids = duplicate_asteroids_for_wraparound(ast, max_x, max_y)
+        for a in duplicated_asteroids:
+            simulated_asteroids.append({
+                'position': a['position'],
+                'velocity': a['velocity'],
+                'radius': a['radius'],
+                'num_timesteps_left_to_simulate': time_to_simulate / time_delta
+            })
     closest_asteroid = None
-    speedup_factor = 1
     breakout_flag = False
-    for i in range(math.ceil(time_to_simulate / time_delta / speedup_factor)):
+    for i in range(math.ceil(time_to_simulate / time_delta)):
         if breakout_flag:
             break
         for ind, a in enumerate(simulated_asteroids):
+            # Check how far these are. If they're farther than like 200 units away from me, just advance the simulation by a LOT of timesteps, reducing accuracy where it doesn't really matter
+            if not check_collision(a['position'][0], a['position'][1], a['radius'], ship_x, ship_y, ship_radius + 300):
+                speedup_factor = 30 # Jump by 30 steps, which is 1 second
+            else:
+                speedup_factor = 1
+            # Get the next position
             a['position'] = [pos + speedup_factor*v*time_delta for pos, v in zip(a['position'], a['velocity'])]
+            # Wraparound the bounds
+            while a['position'][0] > max_x:
+                a['position'][0] -= max_x
+            while a['position'][0] < 0:
+                a['position'][0] += max_x
+            while a['position'][1] > max_y:
+                a['position'][1] -= max_y
+            while a['position'][1] < 0:
+                a['position'][1] += max_y
             if check_collision(a['position'][0], a['position'][1], a['radius'], ship_x, ship_y, ship_radius):
-                closest_asteroid = asteroids[ind]
-                #print(f"Closest asteroid to hit me is at {i*time_delta*speedup_factor} seconds from now")
+                closest_asteroid = asteroids[ind//9] # Asteroids list only has 1/9 the elements before duplication
+                #print(f"Closest asteroid to hit me is at {i*time_delta} seconds from now")
                 #print(closest_asteroid)
                 breakout_flag = True
                 break
+    #print(len(simulated_asteroids), len(asteroids))
     if closest_asteroid is not None:
         print(f"Asteroid getting close, <={time_to_simulate} seconds away. Defend!")
         return closest_asteroid
