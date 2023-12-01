@@ -77,16 +77,24 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
         timesteps_from_now = 0.0 # We allow fractional timesteps
         iterations = 10
         max_bullet_time = 200
+        ship_heading = ship_state["heading"]
         for it in range(iterations):
             if timesteps_from_now > max_bullet_time:
                 # Fuggetaboutit, we ain't hunting down this asteroid until it loops around at least
                 break
             print(f"Iteration {it}, current total timesteps from now: {timesteps_from_now}")
-            _, shooting_theta, _, _ = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_state["heading"])
+            _, shooting_theta, _, _ = calculate_interception(ship_x, ship_y, candidate_asteroid["position"][0] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + timesteps_from_now) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], ship_heading)
             
             shooting_theta_deg = shooting_theta * 180.0 / math.pi
             shooting_theta_deg = abs(shooting_theta_deg)
             print(shooting_theta_deg / (turn_rate_range * time_delta))
+            # Update the ship heading
+            ship_heading += shooting_theta_deg
+            # Keep the angle within (-180, 180)
+            while ship_heading > 360:
+                ship_heading -= 360.0
+            while ship_heading < 0:
+                ship_heading += 360.0
             number_of_timesteps_itll_take_to_turn = shooting_theta_deg / (turn_rate_range * time_delta)
             
             timesteps_from_now += number_of_timesteps_itll_take_to_turn

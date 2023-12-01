@@ -34,7 +34,7 @@ asteroid_string = generate_asteroids(
     size_range=(1, 3)
 )
 
-width, height = (1700, 1060)
+width, height = (3400, 2000)
 
 my_test_scenario = Scenario(name='Test Scenario',
                             #num_asteroids=5,
