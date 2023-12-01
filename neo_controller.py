@@ -233,6 +233,7 @@ class NeoController(KesslerController):
 
         self.shot_at_asteroids = {} # Dict of tuples, with the values corresponding to the timesteps we need to wait until they can be shot at again
         self.fire_on_frames = set()
+        self.last_time_fired = -1
 
     def finish_init(self, game_state):
         self.eval_frames = 0 #What is this?
@@ -556,40 +557,47 @@ class NeoController(KesslerController):
         else:
             sign = +1
         shooting_theta_deg = abs(shooting_theta_deg)
-        locked_in = False
         if shooting_theta_deg > turn_rate_range * time_delta:
             turn_rate = sign * turn_rate_range
             #print(f'Turn rate is max at: {turn_rate}')
         else:
-            locked_in = True
             self.fire_on_frames.add(self.eval_frames + 1)
             turn_rate = sign * shooting_theta_deg / time_delta
             print(f'SNAP! Turn rate: {turn_rate}')
 
         if self.eval_frames in self.fire_on_frames and not ship_state['is_respawning']:
-            fire = True
-            self.fire_on_frames.remove(self.eval_frames)
-            self.shot_at_asteroids[(closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], closest_asteroid["radius"])] = math.ceil(bullet_t / time_delta)
+            if self.eval_frames - self.last_time_fired >= 5:
+                # Our firing cooldown has ran out, and we can fire. We can only shoot once every 5 frames.
+                fire = True
+                self.fire_on_frames.remove(self.eval_frames)
+                self.shot_at_asteroids[(closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], closest_asteroid["radius"])] = math.ceil(bullet_t / time_delta)
+            else:
+                fire = False
+                # Try to fire on the next frame
+                self.fire_on_frames.add(self.eval_frames + 1)
         elif self.eval_frames in self.fire_on_frames and ship_state['is_respawning']:
             self.fire_on_frames.add(self.eval_frames + 1)
         else:
             fire = False
+        #fire = self.eval_frames % 5 == 0
         # List to hold keys to be removed
         keys_to_remove = []
-
+        print(len(self.shot_at_asteroids))
+        print(self.eval_frames)
+        print(self.shot_at_asteroids)
         # Iterate through the dictionary items
         for key, value in self.shot_at_asteroids.items():
             # Decrease each value by 1
             self.shot_at_asteroids[key] = value - 1
             
             # If the value hits 0, add the key to the list of keys to be removed
-            if self.shot_at_asteroids[key] == 0:
+            if self.shot_at_asteroids[key] <= 0:
                 keys_to_remove.append(key)
 
         # Remove the keys from the dictionary
         for key in keys_to_remove:
             del self.shot_at_asteroids[key]
-        
+        #turn_rate = 0
         #print(f"Turn rate: {turn_rate}")
         #thrust = shooting.output['ship_thrust']
         thrust = 0
