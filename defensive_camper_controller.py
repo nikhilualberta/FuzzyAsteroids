@@ -14,6 +14,7 @@ from skfuzzy import control as ctrl
 import math
 import numpy as np
 import matplotlib as plt
+from collections import deque
 
 #TODO
 # We might need a new antecedent for asteroid distance, and based on that apply thrust
@@ -39,13 +40,13 @@ class DefensiveCamperController(KesslerController):
         theta_pid_input = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_pid_input') # Radians due to Python
         asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
         ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed')
-        current_ship_thrust = ctrl.Antecedent(np.arange(-450, 450, 1), 'current_ship_thrust')
+        current_ship_thrust = ctrl.Antecedent(np.arange(-480, 480, 1), 'current_ship_thrust')
         ship_pos_x = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_x')
         ship_pos_y = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_y')
 
         ship_turn = ctrl.Consequent(np.arange(-180,180,1), 'ship_turn') # Degrees due to Kessler
         ship_fire = ctrl.Consequent(np.arange(-1,1,0.1), 'ship_fire')
-        ship_thrust = ctrl.Consequent(np.arange(-450, 450, 1), 'ship_thrust') 
+        ship_thrust = ctrl.Consequent(np.arange(-480, 480, 1), 'ship_thrust') 
 
         # Declare fuzzy sets for bullet_time (how long it takes for the bullet to reach the intercept point)
         bullet_time['S'] = fuzz.trimf(bullet_time.universe,[0,0,0.05])
@@ -53,7 +54,7 @@ class DefensiveCamperController(KesslerController):
         bullet_time['L'] = fuzz.smf(bullet_time.universe,0.0,0.1)
 
         # Declare fuzzy sets for theta_delta (degrees of turn needed to reach the calculated firing angle)
-        angle_scale_factor = 1.0
+        angle_scale_factor = 3.0
         theta_delta['NL'] = fuzz.zmf(theta_delta.universe, -1*angle_scale_factor*math.pi/3, -1*angle_scale_factor*math.pi/6)
         theta_delta['NS'] = fuzz.trimf(theta_delta.universe, [-1*angle_scale_factor*math.pi/3, -1*angle_scale_factor*math.pi/6, 0])
         theta_delta['Z'] = fuzz.trimf(theta_delta.universe, [-1*angle_scale_factor*math.pi/6, 0, angle_scale_factor*math.pi/6])
@@ -81,28 +82,28 @@ class DefensiveCamperController(KesslerController):
         theta_delta_derivative['PL'] = fuzz.smf(theta_delta_derivative.universe, Kd*math.pi/6, Kd*math.pi/3)
         '''
         # Declare fuzzy sets for the ship_turn consequent; this will be returned as turn_rate.
-        ship_turn['NL'] = fuzz.trimf(ship_turn.universe, [-180,-180,-30])
-        ship_turn['NS'] = fuzz.trimf(ship_turn.universe, [-90,-30,0])
-        ship_turn['Z'] = fuzz.trimf(ship_turn.universe, [-30,0,30])
-        ship_turn['PS'] = fuzz.trimf(ship_turn.universe, [0,30,90])
-        ship_turn['PL'] = fuzz.trimf(ship_turn.universe, [30,180,180])
+        ship_turn['NL'] = fuzz.trimf(ship_turn.universe, [-180,-180,-45])
+        ship_turn['NS'] = fuzz.trimf(ship_turn.universe, [-90,-45,0])
+        ship_turn['Z'] = fuzz.trimf(ship_turn.universe, [-45,0,45])
+        ship_turn['PS'] = fuzz.trimf(ship_turn.universe, [0,45,90])
+        ship_turn['PL'] = fuzz.trimf(ship_turn.universe, [45,180,180])
         
         #Declare singleton fuzzy sets for the ship_fire consequent; -1 -> don't fire, +1 -> fire; this will be thresholded
         #   and returned as the boolean 'fire'
         ship_fire['N'] = fuzz.trimf(ship_fire.universe, [-1,-1,0.0])
         ship_fire['Y'] = fuzz.trimf(ship_fire.universe, [0.0,1,1]) 
         
-        ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-450, -450, -337.5])
+        ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-480, -480, -337.5])
         ship_thrust['NS'] = fuzz.trimf(ship_thrust.universe, [-337.5, -225, -112.5])
         ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-112.5, 0, 112.5])
         ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [112.5, 225, 337.5])
-        ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 450, 450])
+        ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 480, 480])
         
-        current_ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-450, -450, -337.5])
+        current_ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-480, -480, -337.5])
         current_ship_thrust['NS'] = fuzz.trimf(ship_thrust.universe, [-337.5, -225, -112.5])
         current_ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-112.5, 0, 112.5])
         current_ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [112.5, 225, 337.5])
-        current_ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 450, 450])
+        current_ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 480, 480])
         
         ship_speed['NL'] = fuzz.trimf(ship_speed.universe, [-240, -160, -100])
         ship_speed['NS'] = fuzz.trimf(ship_speed.universe, [-100,-60, -10])
@@ -305,6 +306,12 @@ class DefensiveCamperController(KesslerController):
         # For now, don't use the two asteroids separately and only use the wraparound one
         closest_asteroid = closest_asteroid_wraparound
         
+        # Advance the asteroid by one timestep, because we keep aiming at where the asteroid WAS, and not where it IS
+        time_delta = 1/30
+        aster_pos_x_next = closest_asteroid["aster"]["position"][0] + time_delta * closest_asteroid["aster"]["velocity"][0]
+        aster_pos_y_next = closest_asteroid["aster"]["position"][1] + time_delta * closest_asteroid["aster"]["velocity"][1]
+        closest_asteroid["aster"]["position"] = (aster_pos_x_next, aster_pos_y_next)
+
         if self.previously_targetted_asteroid is None or closest_asteroid['aster']['velocity'] != self.previously_targetted_asteroid['aster']['velocity']:
             # We're targetting a new asteroid. Reset the PID terms
             #print("Targetting new asteroid!")
@@ -322,7 +329,6 @@ class DefensiveCamperController(KesslerController):
         #    and the angle of the asteroid's current movement.
         # REMEMBER TRIG FUNCTIONS ARE ALL IN RADAINS!!!
         
-        
         asteroid_ship_x = ship_pos_x - closest_asteroid["aster"]["position"][0]
         asteroid_ship_y = ship_pos_y - closest_asteroid["aster"]["position"][1]
         
@@ -333,7 +339,7 @@ class DefensiveCamperController(KesslerController):
         cos_my_theta2 = math.cos(my_theta2)
         # Need the speeds of the asteroid and bullet. speed * time is distance to the intercept point
         asteroid_vel = math.sqrt(closest_asteroid["aster"]["velocity"][0]**2 + closest_asteroid["aster"]["velocity"][1]**2)
-        bullet_speed = 800 # Hard-coded bullet speed from bullet.py
+        bullet_speed = 50 # Hard-coded bullet speed from bullet.py
         
         # Determinant of the quadratic formula b^2-4ac
         targ_det = (-2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2)**2 - (4*(asteroid_vel**2 - bullet_speed**2) * closest_asteroid["dist"])
@@ -357,7 +363,7 @@ class DefensiveCamperController(KesslerController):
         # Calculate the intercept point. The work backwards to find the ship's firing angle my_theta1.
         intrcpt_x = closest_asteroid["aster"]["position"][0] + closest_asteroid["aster"]["velocity"][0] * bullet_t
         intrcpt_y = closest_asteroid["aster"]["position"][1] + closest_asteroid["aster"]["velocity"][1] * bullet_t
-        
+        print(f"bullet t {bullet_t}")
         my_theta1 = math.atan2((intrcpt_y - ship_pos_y),(intrcpt_x - ship_pos_x))
         
         # Lastly, find the difference between firing angle and the ship's current orientation. BUT THE SHIP HEADING IS IN DEGREES.
@@ -378,23 +384,51 @@ class DefensiveCamperController(KesslerController):
         # Too much overshoot? Increase Kd, decrease Kp.
         # Response too damped? Increase Kp.
         # Ramps up quickly to a value below target value and then slows down as it approaches target value? Try increasing the Ki constant.
-        Kp = 1.0
-        Ki = 0.0
-        Kd = 0.0
+        Kp = 3.0
+        Ki = 0.5
+        Kd = 0.1
+        #Ki_abs_cap = 0.5
+        leaky_factor = 0.95
+
+        def log_decay_num(x):
+            eps = 0.00001
+            if x < 0:
+                sign = -1.0
+            elif x >= 0:
+                sign = 1.0
+            if abs(x) < eps:
+                return 0
+            return sign * math.log1p(abs(x))
+
+        def sqrt_decay_num(x):
+            eps = 0.00001
+            if x < 0:
+                sign = -1.0
+            elif x >= 0:
+                sign = 1.0
+            if abs(x) < eps:
+                return 0
+            print(f"{x}, {abs(x)}")
+            return sign * math.sqrt(abs(x))
 
         shooting.input['bullet_time'] = bullet_t
         P = shooting_theta
         shooting.input['theta_delta'] = shooting_theta
-        self.pid_integral += shooting_theta
+        self.pid_integral = self.pid_integral * leaky_factor + sqrt_decay_num(shooting_theta)
+        #if self.pid_integral > Ki_abs_cap:
+        #    self.pid_integral = Ki_abs_cap
+        #elif self.pid_integral < -Ki_abs_cap:
+        #    self.pid_integral = -Ki_abs_cap
         I = self.pid_integral
         D = shooting_theta - self.pid_previous_error
         self.pid_previous_error = shooting_theta
         shooting.input['theta_pid_input'] = Kp*P + Ki*I + Kd*D
-        print(f"P: {Kp*P} I: {Ki*I} D: {Kd*D}")
+        print(f"P: {Kp*P} I: {Ki*I} D: {Kd*D}, input: {Kp*P + Ki*I + Kd*D}, theta_delta: {shooting_theta}")
         shooting.compute()
         
         # Get the defuzzified outputs
         turn_rate = shooting.output['ship_turn']
+        print(f"Turn rate: {turn_rate}")
         thrust = shooting.output['ship_thrust']
         if shooting.output['ship_fire'] >= 0 and not ship_state['is_respawning']:
             fire = True
