@@ -54,12 +54,13 @@ class DefensiveCamperController(KesslerController):
         bullet_time['L'] = fuzz.smf(bullet_time.universe,0.0,0.1)
 
         # Declare fuzzy sets for theta_delta (degrees of turn needed to reach the calculated firing angle)
-        angle_scale_factor = 3.0
-        theta_delta['NL'] = fuzz.zmf(theta_delta.universe, -1*angle_scale_factor*math.pi/3, -1*angle_scale_factor*math.pi/6)
-        theta_delta['NS'] = fuzz.trimf(theta_delta.universe, [-1*angle_scale_factor*math.pi/3, -1*angle_scale_factor*math.pi/6, 0])
-        theta_delta['Z'] = fuzz.trimf(theta_delta.universe, [-1*angle_scale_factor*math.pi/6, 0, angle_scale_factor*math.pi/6])
-        theta_delta['PS'] = fuzz.trimf(theta_delta.universe, [0, angle_scale_factor*math.pi/6, angle_scale_factor*math.pi/3])
-        theta_delta['PL'] = fuzz.smf(theta_delta.universe, angle_scale_factor*math.pi/6, angle_scale_factor*math.pi/3)
+        angle_small_threshold = math.pi/40
+        angle_large_threshold = math.pi
+        theta_delta['NL'] = fuzz.zmf(theta_delta.universe, -1*angle_large_threshold, -1*angle_small_threshold)
+        theta_delta['NS'] = fuzz.trimf(theta_delta.universe, [-1*angle_large_threshold, -1*angle_small_threshold, 0])
+        theta_delta['Z'] = fuzz.trimf(theta_delta.universe, [-1*angle_small_threshold, 0, angle_small_threshold])
+        theta_delta['PS'] = fuzz.trimf(theta_delta.universe, [0, angle_small_threshold, angle_large_threshold])
+        theta_delta['PL'] = fuzz.smf(theta_delta.universe, angle_small_threshold, angle_large_threshold)
 
         pid_scale_factor = 3.0
         theta_pid_input['NL'] = fuzz.zmf(theta_pid_input.universe, -1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6)
@@ -68,19 +69,6 @@ class DefensiveCamperController(KesslerController):
         theta_pid_input['PS'] = fuzz.trimf(theta_pid_input.universe, [0, pid_scale_factor*math.pi/6, pid_scale_factor*math.pi/3])
         theta_pid_input['PL'] = fuzz.smf(theta_pid_input.universe, pid_scale_factor*math.pi/6, pid_scale_factor*math.pi/3)
 
-        '''
-        theta_delta_integral['NL'] = fuzz.zmf(theta_delta_integral.universe, -1*Ki*math.pi/3, -1*Ki*math.pi/6)
-        theta_delta_integral['NS'] = fuzz.trimf(theta_delta_integral.universe, [-1*Ki*math.pi/3, -1*Ki*math.pi/6, 0])
-        theta_delta_integral['Z'] = fuzz.trimf(theta_delta_integral.universe, [-1*Ki*math.pi/6, 0, Ki*math.pi/6])
-        theta_delta_integral['PS'] = fuzz.trimf(theta_delta_integral.universe, [0, Ki*math.pi/6, Ki*math.pi/3])
-        theta_delta_integral['PL'] = fuzz.smf(theta_delta_integral.universe, Ki*math.pi/6, Ki*math.pi/3)
-
-        theta_delta_derivative['NL'] = fuzz.zmf(theta_delta_derivative.universe, -1*Kd*math.pi/3, -1*Kd*math.pi/6)
-        theta_delta_derivative['NS'] = fuzz.trimf(theta_delta_derivative.universe, [-1*Kd*math.pi/3, -1*Kd*math.pi/6, 0])
-        theta_delta_derivative['Z'] = fuzz.trimf(theta_delta_derivative.universe, [-1*Kd*math.pi/6, 0, Kd*math.pi/6])
-        theta_delta_derivative['PS'] = fuzz.trimf(theta_delta_derivative.universe, [0, Kd*math.pi/6, Kd*math.pi/3])
-        theta_delta_derivative['PL'] = fuzz.smf(theta_delta_derivative.universe, Kd*math.pi/6, Kd*math.pi/3)
-        '''
         # Declare fuzzy sets for the ship_turn consequent; this will be returned as turn_rate.
         ship_turn['NL'] = fuzz.trimf(ship_turn.universe, [-180,-180,-45])
         ship_turn['NS'] = fuzz.trimf(ship_turn.universe, [-90,-45,0])
@@ -145,7 +133,7 @@ class DefensiveCamperController(KesslerController):
 
             # Only fire if we're pretty much aimed at the asteroid
             ctrl.Rule(theta_delta['NL'] | theta_delta['PL'], ship_fire['N']),
-            ctrl.Rule(theta_delta['NS'] | theta_delta['Z'] | theta_delta['PS'], ship_fire['Y']),
+            ctrl.Rule(theta_delta['Z'], ship_fire['Y']),
 
             # If we're far from the asteroid, thrust toward it. If we're super close, stop going closer and even back up a bit
             ctrl.Rule(bullet_time['L'], ship_thrust['PL']),
@@ -388,13 +376,14 @@ class DefensiveCamperController(KesslerController):
         # Too much overshoot? Increase Kd, decrease Kp.
         # Response too damped? Increase Kp.
         # Ramps up quickly to a value below target value and then slows down as it approaches target value? Try increasing the Ki constant.
-        Kp = 5.0
+        Kp = 3.0
         Ki = 0.3
-        Kd = 0.1
+        Kd = 1.2
         #Ki_abs_cap = 0.5
-        leaky_factor = 0.95
+        leaky_factor = 0.96
 
         def log_decay_num(x):
+            # This one has the right idea of making super large values smaller, but it doesn't give enough weight to super small stuff
             eps = 0.00001
             if x < 0:
                 sign = -1.0
@@ -405,6 +394,7 @@ class DefensiveCamperController(KesslerController):
             return sign * math.log1p(abs(x))
 
         def sqrt_decay_num(x):
+            # This one enhances small values and weighs them more, so I like this one
             eps = 0.00001
             if x < 0:
                 sign = -1.0
