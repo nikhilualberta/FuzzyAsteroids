@@ -130,16 +130,14 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
     ship_radius = ship_state['radius']
     #simulated_asteroids = copy.deepcopy(asteroids)
     simulated_asteroids = []
-    # Make our own copy of the asteroids list (with duplicates), and also add in a variable to keep track of how many timesteps we still have yet to simulate
-    for ast in asteroids:
-        duplicated_asteroids = duplicate_asteroids_for_wraparound(ast, max_x, max_y, 'stack')
-        for a in duplicated_asteroids:
-            simulated_asteroids.append({
-                'position': a['position'],
-                'velocity': a['velocity'],
-                'radius': a['radius'],
-                'num_timesteps_left_to_simulate': math.ceil(time_to_simulate / time_delta)
-            })
+    # Make our own copy of the asteroids list (no duplicates needed since we compute wraparound during simulation), and also add in a variable to keep track of how many timesteps we still have yet to simulate
+    for a in asteroids:
+        simulated_asteroids.append({
+            'position': a['position'],
+            'velocity': a['velocity'],
+            'radius': a['radius'],
+            'num_timesteps_left_to_simulate': math.ceil(time_to_simulate / time_delta)
+        })
     closest_asteroid = None
     breakout_flag = False
     #for i in range(math.ceil(time_to_simulate / time_delta)):
