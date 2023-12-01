@@ -175,11 +175,11 @@ class DefensiveCamperController(KesslerController):
             ctrl.Rule(current_ship_thrust['PL'] & ship_speed['PL'], (ship_thrust['NL'])), #slow down
             ctrl.Rule(current_ship_thrust['PL'] & ship_speed['PS'], (ship_thrust['NL'])), #slow down
             
-            ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['PL'])), #slow down
-            ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['PS'])), #slow down
-            ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['Z'])), #slow down
-            ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NS'])), #slow down
-            ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NL'])) #slow down
+            ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['PL'])), #slow down
+            ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['PS'])), #slow down
+            ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['Z'])), #slow down
+            ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['NS'])), #slow down
+            ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['NL'])) #slow down
         ]
         
 
@@ -193,7 +193,7 @@ class DefensiveCamperController(KesslerController):
         # This is an instance variable, and thus available for other methods in the same object. See notes.                         
         # self.targeting_control = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15])
         
-        self.position_control = ctrl.ControlSystem()  
+        self.position_control = ctrl.ControlSystem()
         for i in position_control_rules:
             self.position_control.addrule(i)
          
@@ -305,12 +305,6 @@ class DefensiveCamperController(KesslerController):
         closest_asteroid_wraparound["dist"] = math.sqrt(closest_asteroid_wraparound["dist"])
         # For now, don't use the two asteroids separately and only use the wraparound one
         closest_asteroid = closest_asteroid_wraparound
-        
-        # Advance the asteroid by one timestep, because we keep aiming at where the asteroid WAS, and not where it IS
-        time_delta = 1/30
-        aster_pos_x_next = closest_asteroid["aster"]["position"][0] + time_delta * closest_asteroid["aster"]["velocity"][0]
-        aster_pos_y_next = closest_asteroid["aster"]["position"][1] + time_delta * closest_asteroid["aster"]["velocity"][1]
-        closest_asteroid["aster"]["position"] = (aster_pos_x_next, aster_pos_y_next)
 
         if self.previously_targetted_asteroid is None or closest_asteroid['aster']['velocity'] != self.previously_targetted_asteroid['aster']['velocity']:
             # We're targetting a new asteroid. Reset the PID terms
@@ -327,7 +321,7 @@ class DefensiveCamperController(KesslerController):
         
         # Side D of the triangle is given by closest_asteroid.dist. Need to get the asteroid-ship direction
         #    and the angle of the asteroid's current movement.
-        # REMEMBER TRIG FUNCTIONS ARE ALL IN RADAINS!!!
+        # REMEMBER TRIG FUNCTIONS ARE ALL IN RADIANS!!!
         
         asteroid_ship_x = ship_pos_x - closest_asteroid["aster"]["position"][0]
         asteroid_ship_y = ship_pos_y - closest_asteroid["aster"]["position"][1]
@@ -335,18 +329,28 @@ class DefensiveCamperController(KesslerController):
         asteroid_ship_theta = math.atan2(asteroid_ship_y,asteroid_ship_x)
         
         asteroid_direction = math.atan2(closest_asteroid["aster"]["velocity"][1], closest_asteroid["aster"]["velocity"][0]) # Velocity is a 2-element array [vx,vy].
+        
+        # Need a number between -180 and 180 degrees
         my_theta2 = asteroid_ship_theta - asteroid_direction
+        #if my_theta2 < -math.pi:
+        #    my_theta2 += 2*math.pi
+        #elif my_theta2 > math.pi:
+        #    my_theta2 -= 2*math.pi
+        # This shouldn't matter because sin and cos are 2pi periodic
+        #print(f"asteroid dir: {asteroid_direction*180/math.pi}, asteroid ship theta: {asteroid_ship_theta*180/math.pi}, mytheta: {my_theta2*180/math.pi}")
         cos_my_theta2 = math.cos(my_theta2)
         # Need the speeds of the asteroid and bullet. speed * time is distance to the intercept point
         asteroid_vel = math.sqrt(closest_asteroid["aster"]["velocity"][0]**2 + closest_asteroid["aster"]["velocity"][1]**2)
-        bullet_speed = 50 # Hard-coded bullet speed from bullet.py
+        bullet_speed = 800 # Hard-coded bullet speed from bullet.py
         
-        # Determinant of the quadratic formula b^2-4ac
-        targ_det = (-2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2)**2 - (4*(asteroid_vel**2 - bullet_speed**2) * closest_asteroid["dist"])
-        
+        # Discriminant of the quadratic formula b^2-4ac
+        targ_det = (-2 * closest_asteroid['dist'] * asteroid_vel * cos_my_theta2)**2 - (4*(asteroid_vel**2 - bullet_speed**2) * closest_asteroid['dist']**2)
+        #print(f"targdet: {targ_det}, b^2: {(-2 * closest_asteroid['dist'] * asteroid_vel * cos_my_theta2)**2}, 4ac: {4*(asteroid_vel**2 - bullet_speed**2) * closest_asteroid['dist']**2}, closestasterroiddist: {closest_asteroid['dist']}, cos_my_theta2: {cos_my_theta2}")
+        if targ_det < 0:
+            targ_det = 0
         # Combine the Law of Cosines with the quadratic formula for solve for intercept time. Remember, there are two values produced.
-        intrcpt1 = ((2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2) + math.sqrt(targ_det)) / (2 * (asteroid_vel**2 -bullet_speed**2))
-        intrcpt2 = ((2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2) - math.sqrt(targ_det)) / (2 * (asteroid_vel**2-bullet_speed**2))
+        intrcpt1 = ((2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2) + math.sqrt(targ_det)) / (2 * (asteroid_vel**2 - bullet_speed**2))
+        intrcpt2 = ((2 * closest_asteroid["dist"] * asteroid_vel * cos_my_theta2) - math.sqrt(targ_det)) / (2 * (asteroid_vel**2 - bullet_speed**2))
         
         # Take the smaller intercept time, as long as it is positive; if not, take the larger one.
         if intrcpt1 > intrcpt2:
@@ -363,7 +367,7 @@ class DefensiveCamperController(KesslerController):
         # Calculate the intercept point. The work backwards to find the ship's firing angle my_theta1.
         intrcpt_x = closest_asteroid["aster"]["position"][0] + closest_asteroid["aster"]["velocity"][0] * bullet_t
         intrcpt_y = closest_asteroid["aster"]["position"][1] + closest_asteroid["aster"]["velocity"][1] * bullet_t
-        print(f"bullet t {bullet_t}")
+        #print(f"bullet t {bullet_t}")
         my_theta1 = math.atan2((intrcpt_y - ship_pos_y),(intrcpt_x - ship_pos_x))
         
         # Lastly, find the difference between firing angle and the ship's current orientation. BUT THE SHIP HEADING IS IN DEGREES.
@@ -384,8 +388,8 @@ class DefensiveCamperController(KesslerController):
         # Too much overshoot? Increase Kd, decrease Kp.
         # Response too damped? Increase Kp.
         # Ramps up quickly to a value below target value and then slows down as it approaches target value? Try increasing the Ki constant.
-        Kp = 3.0
-        Ki = 0.5
+        Kp = 5.0
+        Ki = 0.3
         Kd = 0.1
         #Ki_abs_cap = 0.5
         leaky_factor = 0.95
