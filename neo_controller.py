@@ -360,18 +360,21 @@ class NeoController(KesslerController):
         ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-thrust_mid_point, 0, thrust_mid_point])
         ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [0, thrust_mid_point, thrust_max_point])
         ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [thrust_mid_point, thrust_max_point, thrust_max_point])
-        
+        # THIS SHOULD ALSO BE GOOD
         current_ship_thrust['NL'] = fuzz.trimf(current_ship_thrust.universe, [-thrust_max_point, -thrust_max_point, -thrust_mid_point])
         current_ship_thrust['NS'] = fuzz.trimf(current_ship_thrust.universe, [-thrust_max_point, -thrust_mid_point, 0])
         current_ship_thrust['Z'] = fuzz.trimf(current_ship_thrust.universe, [-thrust_mid_point, 0, thrust_mid_point])
         current_ship_thrust['PS'] = fuzz.trimf(current_ship_thrust.universe, [0, thrust_mid_point, thrust_max_point])
         current_ship_thrust['PL'] = fuzz.trimf(current_ship_thrust.universe, [thrust_mid_point, thrust_max_point, thrust_max_point])
-        
-        ship_speed['NL'] = fuzz.trimf(ship_speed.universe, [-240, -160, -100])
-        ship_speed['NS'] = fuzz.trimf(ship_speed.universe, [-100, -60, -10])
-        ship_speed['Z'] = fuzz.trimf(ship_speed.universe, [-10, 5, 10])
-        ship_speed['PS'] = fuzz.trimf(ship_speed.universe, [10, 60, 100])
-        ship_speed['PL'] = fuzz.trimf(ship_speed.universe, [100, 160, 240])
+        # current_ship_thrust['PL'].view() THIS IS GOOD
+        ship_speed_max_point = 240
+        ship_speed_mid_point = 50
+        ship_speed['NL'] = fuzz.trimf(ship_speed.universe, [-ship_speed_max_point, -ship_speed_max_point, -ship_speed_mid_point])
+        ship_speed['NS'] = fuzz.trimf(ship_speed.universe, [-ship_speed_max_point, -ship_speed_mid_point, -0])
+        ship_speed['Z'] = fuzz.trimf(ship_speed.universe, [-ship_speed_mid_point, 0, ship_speed_mid_point])
+        ship_speed['PS'] = fuzz.trimf(ship_speed.universe, [0, ship_speed_mid_point, ship_speed_max_point])
+        ship_speed['PL'] = fuzz.trimf(ship_speed.universe, [ship_speed_mid_point, ship_speed_max_point, ship_speed_max_point])
+        #ship_speed['PL'].view() # THIS IS GOOD NOW
         
         buffer = 70
         min_x = 0
@@ -402,13 +405,17 @@ class NeoController(KesslerController):
         # Define membership functions for turn_output
         turn_output['negative'] = fuzz.trapmf(turn_output.universe, [-turn_rate_range/time_delta, -turn_rate_range/time_delta, 0, zero_width])
         turn_output['positive'] = fuzz.trapmf(turn_output.universe, [-zero_width, 0, turn_rate_range/time_delta, turn_rate_range/time_delta])
-
-        distance['VC'] = fuzz.trimf(distance.universe, [0, 30, 60])
-        distance['C'] = fuzz.trimf(distance.universe, [60, 80, 100])
-        distance['M'] = fuzz.trimf(distance.universe, [100, 150, 200])
-        distance['F'] = fuzz.trimf(distance.universe, [200, 200, 400])
-        distance['VF'] = fuzz.trimf(distance.universe, [400, 450, 500])
-
+        # 0 30 60 80 100 150 200 400 450 500
+        distance_max_threshold = 500
+        distance_large_threshold = 200
+        distance_mid_threshold = 100
+        distance_small_threshold = 50
+        distance['VC'] = fuzz.trimf(distance.universe, [0, 0, distance_small_threshold])
+        distance['C'] = fuzz.trimf(distance.universe, [0, distance_small_threshold, distance_mid_threshold])
+        distance['M'] = fuzz.trimf(distance.universe, [distance_small_threshold, distance_mid_threshold, distance_large_threshold])
+        distance['F'] = fuzz.trimf(distance.universe, [distance_mid_threshold, distance_large_threshold, distance_max_threshold])
+        distance['VF'] = fuzz.trimf(distance.universe, [distance_large_threshold, distance_max_threshold, distance_max_threshold])
+        #distance['VC'].view() THIS IS GOOD NOW
         # Declare each fuzzy rule
         trigger_rules = [
             # Only fire if we're pretty much aimed at the asteroid
@@ -654,6 +661,7 @@ class NeoController(KesslerController):
         print(f'Min aim delta: {min_aim_delta}')
         #shooting.input['distance'] = closest_asteroid["dist"] - closest_asteroid["aster"]['radius']
         
+        print('computing trigger')
         trigger_controller.compute()
         
         #turn_rate = shooting.output['ship_turn'] # DO NOT USE THIS TO TURN!!!!!!
@@ -675,6 +683,7 @@ class NeoController(KesslerController):
         avoidance_controller.input['theta_delta'] = shooting_theta
 
         avoidance_controller.input['distance'] = min(closest_gap_between_ship_and_closest_asteroid, 499) # Dist to the closest asteroid, clipped to 500 max
+        print(f'computing avoidance, thetadelta: {shooting_theta}, distance: {closest_gap_between_ship_and_closest_asteroid}')
         avoidance_controller.compute()
         thrust = avoidance_controller.output['ship_thrust']
 
@@ -683,6 +692,7 @@ class NeoController(KesslerController):
         
         thrust_controller.input['ship_speed'] = ship_state['speed']
         thrust_controller.input['current_ship_thrust'] = thrust
+        print('computing thrust')
         thrust_controller.compute()
         
         thrust = thrust_controller.output['ship_thrust']
