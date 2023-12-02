@@ -313,7 +313,6 @@ def calculate_interception(ship_pos_x, ship_pos_y, asteroid_pos_x, asteroid_pos_
 
 
 class NeoController(KesslerController):
-        
     def __init__(self):
         self.init_done = False
 
@@ -332,8 +331,6 @@ class NeoController(KesslerController):
         # Declare variables
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
-        theta_delta_integral = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta_integral') # Radians due to Python
-        theta_delta_derivative = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta_derivative') # Radians due to Python
         theta_pid_input = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_pid_input') # Radians due to Python
         asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
         ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed')
@@ -409,6 +406,21 @@ class NeoController(KesslerController):
         ship_pos_y['close_to_top'] = fuzz.trimf( ship_pos_y.universe, [max_y - buffer * 2, max_y - buffer, max_y])
         ship_pos_y['close_to_bottom'] = fuzz.trimf( ship_pos_y.universe, [min_y, min_y + buffer, min_y + buffer * 2])
         
+        # Define membership functions for turn_error and turn_output
+        zero_width = 13.5
+        fuzzy_fudge = 9
+        # Define the input and output variables
+        turn_error = ctrl.Antecedent(np.arange(-turn_rate_range, turn_rate_range + 1, 1), 'turn_error')
+        turn_output = ctrl.Consequent(np.arange(-turn_rate_range*fuzzy_fudge, turn_rate_range*fuzzy_fudge + 1, 1), 'turn_output')
+
+        # Define membership functions for turn_error
+        turn_error['negative'] = fuzz.trapmf(turn_error.universe, [-turn_rate_range, -turn_rate_range, 0, zero_width])
+        turn_error['positive'] = fuzz.trapmf(turn_error.universe, [-zero_width, 0, turn_rate_range, turn_rate_range])
+
+        # Define membership functions for turn_output
+        turn_output['negative'] = fuzz.trapmf(turn_output.universe, [-turn_rate_range/time_delta, -turn_rate_range/time_delta, 0, zero_width])
+        turn_output['positive'] = fuzz.trapmf(turn_output.universe, [-zero_width, 0, turn_rate_range/time_delta, turn_rate_range/time_delta])
+
         position_control_rules = [
             # CURRENTLY UNUSED
             ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['NL'], (ship_fire['N'], ship_thrust['PL'])),
@@ -466,7 +478,11 @@ class NeoController(KesslerController):
             ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['NS'])), #slow down
             ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['NL'])) #slow down
         ]
-        
+
+        turn_control_rules = [
+            ctrl.Rule(turn_error['negative'], turn_output['negative']),
+            ctrl.Rule(turn_error['positive'], turn_output['positive'])
+        ]
 
         #DEBUG
         #bullet_time.view()
@@ -489,6 +505,10 @@ class NeoController(KesslerController):
         self.thrust_control = ctrl.ControlSystem()
         for i in thrust_control_rules:
             self.thrust_control.addrule(i)
+        
+        self.turn_control = ctrl.ControlSystem()
+        for i in turn_control_rules:
+            self.turn_control.addrule(i)
     
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool]:
@@ -547,15 +567,23 @@ class NeoController(KesslerController):
             sign = -1
         else:
             sign = +1
+        
+        turn_controller = ctrl.ControlSystemSimulation(self.turn_control, flush_after_run=1)
+        turn_controller.input['turn_error'] = shooting_theta_deg
+        turn_controller.compute()
+        print(f"Turn controller input: {shooting_theta_deg}, output: {turn_controller.output['turn_output']}")
         shooting_theta_deg = abs(shooting_theta_deg)
         if len(self.fire_on_frames) > 0:
             # Scheduled to fire. Wait until we're done firing before we turn.
             turn_rate = 0
+            turn_rate_old = 0
         if shooting_theta_deg > turn_rate_range * time_delta:
-            turn_rate = sign * turn_rate_range
+            turn_rate_old = sign * turn_rate_range
             #print(f'Turn rate is max at: {turn_rate}')
+            turn_rate = min(max(-turn_rate_range, turn_controller.output['turn_output']), turn_rate_range)
         elif bullet_t == 10000:
             turn_rate = 0
+            turn_rate_old = 0
         else:
             print(f"Locked in. Scheduled to fire. shooting_theta_deg: {shooting_theta_deg}")
             print(f'Scheduled to fire at asteroid at:')
@@ -564,7 +592,8 @@ class NeoController(KesslerController):
                 self.fire_on_frames.add(self.eval_frames + 1)
             else:
                 self.fire_on_frames.add(self.eval_frames + 1 + 5 - (self.eval_frames - self.last_time_fired))
-            turn_rate = sign * shooting_theta_deg / time_delta
+            turn_rate_old = sign * shooting_theta_deg / time_delta
+            turn_rate = min(max(-turn_rate_range, turn_controller.output['turn_output']), turn_rate_range)
             #print(f'SNAP! Turn rate: {turn_rate}')
         # 0 1 2 3 4 5 6
         if self.eval_frames in self.fire_on_frames and not ship_state['is_respawning']:
@@ -642,6 +671,7 @@ class NeoController(KesslerController):
         #print("thrust is " + str(thrust) + "\n" + "turn rate is " + str(turn_rate) + "\n" + "fire is " + str(fire) + "\n")
         if fire == True:
             self.last_time_fired = self.eval_frames
+        print(f"New turn rate: {turn_rate}, old turn rate: {turn_rate_old}")
         return thrust, turn_rate, fire
 
     @property
