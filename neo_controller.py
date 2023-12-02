@@ -549,17 +549,6 @@ class NeoController(KesslerController):
             print('WACKO CASE')
             bullet_t = 10000
             shooting_theta = 0
-        #print(f"Shooting theta: {shooting_theta}, bullet t: {bullet_t}")
-        
-        # Pass the inputs to the rulebase and fire it
-        #shooting = ctrl.ControlSystemSimulation(self.targeting_control,flush_after_run=1)
-
-        #shooting.input['bullet_time'] = bullet_t
-        #shooting.input['theta_delta'] = shooting_theta
-        #shooting.compute()
-        
-        # Get the defuzzified outputs
-        #turn_rate = shooting.output['ship_turn']
 
         shooting_theta_deg = shooting_theta * 180.0 / math.pi
         #print(f"shooting theta deg {shooting_theta_deg}")
@@ -637,17 +626,33 @@ class NeoController(KesslerController):
         for key in keys_to_remove:
             del self.shot_at_asteroids[key]
         
+        # Iterate through all asteroids, and calculate the minimum angular distance to any intercept with them
+        asteroids = game_state['asteroids']
+        min_aim_delta = 1000
+        for a in asteroids:
+            ship_heading = ship_state["heading"]
+            ship_x = ship_state['position'][0]
+            ship_y = ship_state['position'][1]
+            ship_vel_x = ship_state['velocity'][0]
+            ship_vel_y = ship_state['velocity'][1]
+            _, shooting_theta, _, _ = calculate_interception(ship_x + ship_vel_x, ship_y + ship_vel_y, a['position'][0] + 2 * time_delta * a["velocity"][0], a["position"][1] + 2 * time_delta * a["velocity"][1], a["velocity"][0], a["velocity"][1], ship_heading)
+            shooting_theta_deg = shooting_theta * 180.0 / math.pi
+            shooting_theta_deg = abs(shooting_theta_deg)
+            if shooting_theta_deg < min_aim_delta:
+                min_aim_delta = shooting_theta_deg
+
         # Pass the inputs to the rulebase and fire it
-        shooting = ctrl.ControlSystemSimulation(self.targeting_control,flush_after_run=1)
+        trigger_controller = ctrl.ControlSystemSimulation(self.targeting_control,flush_after_run=1)
     
-        shooting.input['bullet_time'] = bullet_t
-        shooting.input['theta_delta'] = shooting_theta
+        trigger_controller.input['bullet_time'] = bullet_t
+        trigger_controller.input['theta_delta'] = min_aim_delta * math.pi / 180.0
+        print(f'Min aim delta: {min_aim_delta}')
         #shooting.input['distance'] = closest_asteroid["dist"] - closest_asteroid["aster"]['radius']
         
-        shooting.compute()
+        trigger_controller.compute()
         
         #turn_rate = shooting.output['ship_turn'] # DO NOT USE THIS TO TURN!!!!!!
-        thrust = shooting.output['ship_thrust']
+        thrust = trigger_controller.output['ship_thrust']
         '''
         if shooting.output['ship_fire'] >= 0:
             fire = True
@@ -655,7 +660,7 @@ class NeoController(KesslerController):
             fire = False
         '''
         # this controller will look at out current speed and thurst and adjust so we dont uncontrollably runaway
-        thrust_controller = ctrl.ControlSystemSimulation(self.thrust_control,flush_after_run=1)
+        thrust_controller = ctrl.ControlSystemSimulation(self.thrust_control, flush_after_run=1)
         
         thrust_controller.input['ship_speed'] = ship_state['speed']
         thrust_controller.input['current_ship_thrust'] = thrust
