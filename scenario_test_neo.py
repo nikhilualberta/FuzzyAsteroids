@@ -26,7 +26,7 @@ def generate_asteroids(num_asteroids, position_range_x, position_range_y, speed_
 
     return asteroids
 
-width, height = (2400, 1600)
+width, height = (1600, 1000)
 
 my_test_scenario = Scenario(name='Test Scenario',
                             #num_asteroids=5,
