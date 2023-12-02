@@ -511,22 +511,6 @@ class NeoController(KesslerController):
         """
         Method processed each time step by this controller.
         """
-        # These were the constant actions in the basic demo, just spinning and shooting.
-        #thrust = 0 <- How do the values scale with asteroid velocity vector?
-        #turn_rate = 90 <- How do the values scale with asteroid velocity vector?
-        
-        # Answers: Asteroid position and velocity are split into their x,y components in a 2-element ?array each.
-        # So are the ship position and velocity, and bullet position and velocity. 
-        # Units appear to be meters relative to origin (where?), m/sec, m/sec^2 for thrust.
-        # Everything happens in a time increment: delta_time, which appears to be 1/30 sec; this is hardcoded in many places.
-        # So, position is updated by multiplying velocity by delta_time, and adding that to position.
-        # Ship velocity is updated by multiplying thrust by delta time.
-        # Ship position for this time increment is updated after the the thrust was applied.
-        
-        # Goal: demonstrate processing of game state, fuzzy controller, intercept computation 
-        # Intercept-point calculation derived from the Law of Cosines, see notes for details and citation.
-
-        # Field size is hardcoded in map_size_x and map_size_y
 
         # Find the closest asteroid (disregards asteroid velocity)
         ship_pos_x = ship_state["position"][0]     # See src/kesslergame/ship.py in the KesslerGame Github
@@ -538,26 +522,9 @@ class NeoController(KesslerController):
         #print(map_size_x, map_size_y)
         
         #if self.eval_frames % 30 == 0 or self.previously_targetted_asteroid is None:
-        # Should not return none!
         closest_asteroid = find_closest_asteroid(game_state, ship_state, self.shot_at_asteroids)
-        #else:
-        #    closest_asteroid = self.previously_targetted_asteroid
-        #if self.previously_targetted_asteroid is None or closest_asteroid['aster']['velocity'] != self.previously_targetted_asteroid['aster']['velocity']:
-        #    # We're targetting a new asteroid. Reset the PID terms
-        #    #print("Targetting new asteroid!")
-        #    #print(closest_asteroid)
-        #    self.pid_integral = 0
-        #    self.pid_previous_error = 0
         #    self.previously_targetted_asteroid = closest_asteroid
         # closest_asteroid now contains the nearest asteroid considering wraparound
-
-        # closest_asteroid is now the nearest asteroid object. 
-        # Calculate intercept time given ship & asteroid position, asteroid velocity vector, bullet speed (not direction).
-        # Based on Law of Cosines calculation, see notes.
-        
-        # Side D of the triangle is given by closest_asteroid.dist. Need to get the asteroid-ship direction
-        #    and the angle of the asteroid's current movement.
-        # REMEMBER TRIG FUNCTIONS ARE ALL IN RADIANS!!!
         #print("We're targetting:")
         #print(closest_asteroid)
         if closest_asteroid is not None:
@@ -569,10 +536,10 @@ class NeoController(KesslerController):
         #print(f"Shooting theta: {shooting_theta}, bullet t: {bullet_t}")
         
         # Pass the inputs to the rulebase and fire it
-        shooting = ctrl.ControlSystemSimulation(self.targeting_control,flush_after_run=1)
+        #shooting = ctrl.ControlSystemSimulation(self.targeting_control,flush_after_run=1)
 
-        shooting.input['bullet_time'] = bullet_t
-        shooting.input['theta_delta'] = shooting_theta
+        #shooting.input['bullet_time'] = bullet_t
+        #shooting.input['theta_delta'] = shooting_theta
         #shooting.compute()
         
         # Get the defuzzified outputs
@@ -645,7 +612,6 @@ class NeoController(KesslerController):
         for key in keys_to_remove:
             del self.shot_at_asteroids[key]
         
-        #turn_rate = 0
         #print(f"Turn rate: {turn_rate}")
         #thrust = shooting.output['ship_thrust']
         #if shooting.output['ship_fire'] >= 0 and not ship_state['is_respawning']:
