@@ -13,7 +13,7 @@ from threat_controller import ThreatController
 from graphics_both import GraphicsBoth
 import random
 
-random.seed(6)
+#random.seed(6)
 
 def generate_asteroids(num_asteroids, position_range_x, position_range_y, speed_range, angle_range, size_range):
     asteroids = []
