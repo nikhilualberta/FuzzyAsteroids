@@ -564,7 +564,7 @@ class NeoController(KesslerController):
             bullet_t, shooting_theta, _, _ = calculate_interception(ship_pos_x, ship_pos_y, closest_asteroid["position"][0] + 2 * time_delta * closest_asteroid["velocity"][0], closest_asteroid["position"][1] + 2 * time_delta * closest_asteroid["velocity"][1], closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], ship_state["heading"])
         else:
             print('WACKO CASE')
-            bullet_t = 100
+            bullet_t = 10000
             shooting_theta = 0
         #print(f"Shooting theta: {shooting_theta}, bullet t: {bullet_t}")
         
@@ -591,6 +591,8 @@ class NeoController(KesslerController):
         if shooting_theta_deg > turn_rate_range * time_delta:
             turn_rate = sign * turn_rate_range
             #print(f'Turn rate is max at: {turn_rate}')
+        elif bullet_t == 10000:
+            turn_rate = 0
         else:
             print(f"Locked in. Scheduled to fire. shooting_theta_deg: {shooting_theta_deg}")
             print(f'Scheduled to fire at asteroid at:')
