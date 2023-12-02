@@ -1,24 +1,9 @@
-# ECE 449 Intelligent Systems Engineering
-# Fall 2023
-# Dr. Scott Dick
-
-# Demonstration of a fuzzy tree-based controller for Kessler Game.
-# Please see the Kessler Game Development Guide by Dr. Scott Dick for a
-#   detailed discussion of this source code.
-
 from kesslergame import KesslerController # In Eclipse, the name of the library is kesslergame, not src.kesslergame
 from typing import Dict, Tuple
-from cmath import sqrt
 import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 import math
 import numpy as np
-import matplotlib as plt
-from collections import deque
-import copy
-
-#TODO
-# We might need a new antecedent for asteroid distance, and based on that apply thrust
 
 time_delta = 1/30
 turn_rate_range = 180.0
@@ -31,7 +16,6 @@ def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y, pattern='surround
     orig_x, orig_y = asteroid["position"]
 
     # Generate positions for the duplicates
-    #print(f'pattern: {pattern}')
     for col, dx in enumerate([-max_x, 0, max_x]):
         for row, dy in enumerate([-max_y, 0, max_y]):
             if pattern == 'cross':
@@ -50,7 +34,6 @@ def duplicate_asteroids_for_wraparound(asteroid, max_x, max_y, pattern='surround
             duplicate["position"] = (orig_x + dx, orig_y + dy)
             
             duplicates.append(duplicate)
-    #print(duplicates)
     return duplicates
 
 def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_simulate = 4.0):
@@ -72,12 +55,6 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
 
     def check_intercept_bounds(candidate_asteroid, new_ship_heading, additional_future_timesteps = 0):
         bullet_t, _, intercept_x, intercept_y = calculate_interception(ship_x + (1 + additional_future_timesteps) * ship_state['velocity'][0], ship_y + (1 + additional_future_timesteps) * ship_state['velocity'][1], candidate_asteroid["position"][0] + (2 + additional_future_timesteps) * time_delta * candidate_asteroid["velocity"][0], candidate_asteroid["position"][1] + (2 + additional_future_timesteps) * time_delta * candidate_asteroid["velocity"][1], candidate_asteroid["velocity"][0], candidate_asteroid["velocity"][1], new_ship_heading, additional_future_timesteps * time_delta)
-        #if bullet_t + additional_future_timesteps * time_delta >= 0 and check_coordinate_bounds(intercept_x, intercept_y):
-        #    print(f"Success! x: {intercept_x} of {max_x}, y: {intercept_y} of {max_y}, bullet t: {bullet_t}, additional seconds: {additional_future_timesteps * time_delta}")
-        #    pass
-        #else:
-        #    pass
-        #    print(f"Bummer! x: {intercept_x} of {max_x}, y: {intercept_y} of {max_y}, bullet t: {bullet_t}, additional seconds: {additional_future_timesteps * time_delta}")
         if 'dx' in candidate_asteroid and 'dy' in candidate_asteroid:
             bounds_check = check_coordinate_bounds(intercept_x, intercept_y, candidate_asteroid['dx'], candidate_asteroid['dy'])
         else:
@@ -242,8 +219,8 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
                     closest_asteroid_angular_dist = curr_angular_dist
                     closest_asteroid_total_waiting = additional_waiting_timesteps + curr_angular_dist / (turn_rate_range * time_delta)
             elif intercept_feasible:
-                print('Cant shoot at this again')
-                print(shot_at_asteroids)
+                #print('Cant shoot at this again')
+                #print(shot_at_asteroids)
                 pass
             if curr_angular_dist < closest_asteroid_regardless_of_feasibility_angular_dist:
                 closest_asteroid_regardless_of_feasibility = a
@@ -372,23 +349,26 @@ class NeoController(KesslerController):
         
         #Declare singleton fuzzy sets for the ship_fire consequent; -1 -> don't fire, +1 -> fire; this will be thresholded
         #   and returned as the boolean 'fire'
-        ship_fire['N'] = fuzz.trimf(ship_fire.universe, [-1,-1,0.0])
-        ship_fire['Y'] = fuzz.trimf(ship_fire.universe, [0.0,1,1]) 
+        ship_fire['N'] = fuzz.trimf(ship_fire.universe, [-1, -1, 0])
+        ship_fire['Y'] = fuzz.trimf(ship_fire.universe, [0, 1, 1]) 
         
-        ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-480, -480, -337.5])
-        ship_thrust['NS'] = fuzz.trimf(ship_thrust.universe, [-337.5, -225, -112.5])
-        ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-112.5, 0, 112.5])
-        ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [112.5, 225, 337.5])
-        ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 480, 480])
+        thrust_max_point = 480
+        thrust_mid_point = 120
+
+        ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-thrust_max_point, -thrust_max_point, -thrust_mid_point])
+        ship_thrust['NS'] = fuzz.trimf(ship_thrust.universe, [-thrust_max_point, -thrust_mid_point, 0])
+        ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-thrust_mid_point, 0, thrust_mid_point])
+        ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [0, thrust_mid_point, thrust_max_point])
+        ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [thrust_mid_point, thrust_max_point, thrust_max_point])
         
-        current_ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-480, -480, -337.5])
-        current_ship_thrust['NS'] = fuzz.trimf(ship_thrust.universe, [-337.5, -225, -112.5])
-        current_ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-112.5, 0, 112.5])
-        current_ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [112.5, 225, 337.5])
-        current_ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [337.5, 480, 480])
+        current_ship_thrust['NL'] = fuzz.trimf(current_ship_thrust.universe, [-thrust_max_point, -thrust_max_point, -thrust_mid_point])
+        current_ship_thrust['NS'] = fuzz.trimf(current_ship_thrust.universe, [-thrust_max_point, -thrust_mid_point, 0])
+        current_ship_thrust['Z'] = fuzz.trimf(current_ship_thrust.universe, [-thrust_mid_point, 0, thrust_mid_point])
+        current_ship_thrust['PS'] = fuzz.trimf(current_ship_thrust.universe, [0, thrust_mid_point, thrust_max_point])
+        current_ship_thrust['PL'] = fuzz.trimf(current_ship_thrust.universe, [thrust_mid_point, thrust_max_point, thrust_max_point])
         
         ship_speed['NL'] = fuzz.trimf(ship_speed.universe, [-240, -160, -100])
-        ship_speed['NS'] = fuzz.trimf(ship_speed.universe, [-100,-60, -10])
+        ship_speed['NS'] = fuzz.trimf(ship_speed.universe, [-100, -60, -10])
         ship_speed['Z'] = fuzz.trimf(ship_speed.universe, [-10, 5, 10])
         ship_speed['PS'] = fuzz.trimf(ship_speed.universe, [10, 60, 100])
         ship_speed['PL'] = fuzz.trimf(ship_speed.universe, [100, 160, 240])
@@ -398,7 +378,9 @@ class NeoController(KesslerController):
         min_y = 0
         max_x = game_state['map_size'][0]
         max_y = game_state['map_size'][1]
-        
+
+        distance = ctrl.Antecedent(np.arange(0,700,50), 'distance')
+
         ship_pos_x['close_to_left'] = fuzz.trimf(ship_pos_x.universe, [min_x, min_x + buffer, min_x + buffer])
         ship_pos_x['close_to_right'] = fuzz.trimf(ship_pos_y.universe, [max_x - buffer, max_x - buffer, max_x])
 
@@ -421,30 +403,18 @@ class NeoController(KesslerController):
         turn_output['negative'] = fuzz.trapmf(turn_output.universe, [-turn_rate_range/time_delta, -turn_rate_range/time_delta, 0, zero_width])
         turn_output['positive'] = fuzz.trapmf(turn_output.universe, [-zero_width, 0, turn_rate_range/time_delta, turn_rate_range/time_delta])
 
-        position_control_rules = [
-            # CURRENTLY UNUSED
-            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['NL'], (ship_fire['N'], ship_thrust['PL'])),
-            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['NS'], (ship_fire['N'], ship_thrust['PL'])),
-            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['Z'], (ship_fire['N'], ship_thrust['PL'])),
-            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['PL'], (ship_fire['N'], ship_thrust['PL'])),
-            ctrl.Rule(ship_pos_x['close_to_left'] & theta_delta['PS'], (ship_fire['N'], ship_thrust['PL'])),
-        ]
+        distance['VC'] = fuzz.trimf(distance.universe, [0, 30, 60])
+        distance['C'] = fuzz.trimf(distance.universe, [60, 80, 100])
+        distance['M'] = fuzz.trimf(distance.universe, [100, 150, 200])
+        distance['F'] = fuzz.trimf(distance.universe, [200, 200, 400])
+        distance['VF'] = fuzz.trimf(distance.universe, [400, 450, 500])
 
         # Declare each fuzzy rule
         trigger_rules = [
-            # PID controller to determine turn rate
-            # ship_turn = P + I + D = theta_delta + theta_delta_integral + theta_delta_derivative
-            #ctrl.Rule(theta_pid_input['NL'], ship_turn['NL']),
-            #ctrl.Rule(theta_pid_input['NS'], ship_turn['NS']),
-            #ctrl.Rule(theta_pid_input['Z'], ship_turn['Z']),
-            #ctrl.Rule(theta_pid_input['PS'], ship_turn['PS']),
-            #ctrl.Rule(theta_pid_input['PL'], ship_turn['PL']),
-
             # Only fire if we're pretty much aimed at the asteroid
             ctrl.Rule(theta_delta['NL'] | theta_delta['PL'] | theta_delta['NS'] | theta_delta['PS'], ship_fire['N']),
             ctrl.Rule(theta_delta['Z'], ship_fire['Y']),
 
-            # If we're far from the asteroid, thrust toward it. If we're super close, stop going closer and even back up a bit
             ctrl.Rule(bullet_time['L'], ship_thrust['PL']),
             ctrl.Rule(bullet_time['M'], ship_thrust['PS']),
             ctrl.Rule(bullet_time['S'], ship_thrust['NS']),
@@ -458,11 +428,9 @@ class NeoController(KesslerController):
             ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['NS'])), # We are moving very slowly so let them continue
             ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['NL'])), # We are moving very slowly so let them continue
             
-            
             ctrl.Rule(current_ship_thrust['NS'] & ship_speed['NL'], (ship_thrust['PS'])), #We are already moving very fast, slow down
             ctrl.Rule(current_ship_thrust['PS'] & ship_speed['PL'], (ship_thrust['NS'])), #We are already moving very fast, slow down
            
-            
             ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['NL'] | ship_speed['NS']), (ship_thrust['PS'])), #slow down
             ctrl.Rule(current_ship_thrust['NL'] & ship_speed['Z'], (ship_thrust['NL'])), # We are moving very slowly so let them continue
             ctrl.Rule(current_ship_thrust['NL'] & ship_speed['PL'], (ship_thrust['NL'])), #slow down
@@ -484,6 +452,39 @@ class NeoController(KesslerController):
             ctrl.Rule(turn_error['positive'], turn_output['positive'])
         ]
 
+        avoidance_rules = [
+            ctrl.Rule(distance['M'] & theta_delta['NL'], (ship_turn['Z'], ship_fire['N'], ship_thrust['PL'])),
+            ctrl.Rule(distance['M'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS'])),
+            ctrl.Rule(distance['M'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PS'])),
+            ctrl.Rule(distance['M'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS'])),
+            ctrl.Rule(distance['M'] & theta_delta['PL'], (ship_turn['Z'], ship_fire['N'], ship_thrust['PL'])),
+            
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NL'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NL'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL'])),
+
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PS'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PS'])),
+
+            ctrl.Rule(distance['VC'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PS'])),#the astroid is small we can get away with turning
+            ctrl.Rule(distance['VC'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule(distance['VC'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule(distance['VC'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule(distance['VC'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PS'])),  #the astroid is small we can get away with turning
+            
+            #far away go towards
+            ctrl.Rule((distance['F'] | distance['VF'] | distance['M']) & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
+            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M']) & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL'])),
+            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M']) & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PL'])),
+            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M'])& theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PL'])),
+            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M']) & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
+        ]
+
         #DEBUG
         #bullet_time.view()
         #theta_delta.view()
@@ -494,9 +495,9 @@ class NeoController(KesslerController):
         # This is an instance variable, and thus available for other methods in the same object. See notes.                         
         # self.targeting_control = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15])
         
-        self.position_control = ctrl.ControlSystem()
-        for i in position_control_rules:
-            self.position_control.addrule(i)
+        #self.position_control = ctrl.ControlSystem()
+        #for i in position_control_rules:
+        #    self.position_control.addrule(i)
          
         self.targeting_control = ctrl.ControlSystem()
         for i in trigger_rules:
@@ -509,6 +510,10 @@ class NeoController(KesslerController):
         self.turn_control = ctrl.ControlSystem()
         for i in turn_control_rules:
             self.turn_control.addrule(i)
+
+        self.avoidance_control = ctrl.ControlSystem()
+        for i in avoidance_rules:
+            self.avoidance_control.addrule(i)
     
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool]:
@@ -531,20 +536,20 @@ class NeoController(KesslerController):
         ship_pos_y = ship_state["position"][1]       
         ship_vel_x = ship_state["velocity"][0]     # See src/kesslergame/ship.py in the KesslerGame Github
         ship_vel_y = ship_state["velocity"][1]
-        closest_asteroid = None
+        best_asteroid = None
         
         map_size_x = game_state['map_size'][0]
         map_size_y = game_state['map_size'][1]
         #print(map_size_x, map_size_y)
         
         #if self.eval_frames % 30 == 0 or self.previously_targetted_asteroid is None:
-        closest_asteroid = find_closest_asteroid(game_state, ship_state, self.shot_at_asteroids)
+        best_asteroid = find_closest_asteroid(game_state, ship_state, self.shot_at_asteroids)
         #    self.previously_targetted_asteroid = closest_asteroid
         # closest_asteroid now contains the nearest asteroid considering wraparound
         #print("We're targetting:")
         #print(closest_asteroid)
-        if closest_asteroid is not None:
-            bullet_t, shooting_theta, _, _ = calculate_interception(ship_pos_x + ship_vel_x, ship_pos_y + ship_vel_y, closest_asteroid["position"][0] + 2 * time_delta * closest_asteroid["velocity"][0], closest_asteroid["position"][1] + 2 * time_delta * closest_asteroid["velocity"][1], closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], ship_state["heading"])
+        if best_asteroid is not None:
+            bullet_t, shooting_theta, _, _ = calculate_interception(ship_pos_x + ship_vel_x, ship_pos_y + ship_vel_y, best_asteroid["position"][0] + 2 * time_delta * best_asteroid["velocity"][0], best_asteroid["position"][1] + 2 * time_delta * best_asteroid["velocity"][1], best_asteroid["velocity"][0], best_asteroid["velocity"][1], ship_state["heading"])
         else:
             print('WACKO CASE')
             bullet_t = 10000
@@ -560,7 +565,7 @@ class NeoController(KesslerController):
         turn_controller = ctrl.ControlSystemSimulation(self.turn_control, flush_after_run=1)
         turn_controller.input['turn_error'] = shooting_theta_deg
         turn_controller.compute()
-        print(f"Turn controller input: {shooting_theta_deg}, output: {turn_controller.output['turn_output']}")
+        #print(f"Turn controller input: {shooting_theta_deg}, output: {turn_controller.output['turn_output']}")
         shooting_theta_deg = abs(shooting_theta_deg)
         if len(self.fire_on_frames) > 0:
             # Scheduled to fire. Wait until we're done firing before we turn.
@@ -574,9 +579,9 @@ class NeoController(KesslerController):
             turn_rate = 0
             turn_rate_old = 0
         else:
-            print(f"Locked in. Scheduled to fire. shooting_theta_deg: {shooting_theta_deg}")
-            print(f'Scheduled to fire at asteroid at:')
-            print(closest_asteroid)
+            #print(f"Locked in. Scheduled to fire. shooting_theta_deg: {shooting_theta_deg}")
+            #print(f'Scheduled to fire at asteroid at:')
+            #print(closest_asteroid)
             if self.eval_frames - self.last_time_fired >= 5:
                 self.fire_on_frames.add(self.eval_frames + 1)
             else:
@@ -587,23 +592,23 @@ class NeoController(KesslerController):
         # 0 1 2 3 4 5 6
         if self.eval_frames in self.fire_on_frames and not ship_state['is_respawning']:
             # We are scheduled to fire on this frame, and we aren't invincible so we can fire without losing that
-            if self.eval_frames - self.last_time_fired >= 5 and closest_asteroid is not None:
+            if self.eval_frames - self.last_time_fired >= 5 and best_asteroid is not None:
                 # Our firing cooldown has ran out, and we can fire. We can only shoot once every 5 frames.
                 fire = True
                 self.fire_on_frames.remove(self.eval_frames)
-                if 'dx' in closest_asteroid and 'dy' in closest_asteroid:
-                    dx = closest_asteroid['dx']
-                    dy = closest_asteroid['dy']
+                if 'dx' in best_asteroid and 'dy' in best_asteroid:
+                    dx = best_asteroid['dx']
+                    dy = best_asteroid['dy']
                 else:
                     dx = 0
                     dy = 0
-                if (closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], closest_asteroid["radius"], dx, dy) not in self.shot_at_asteroids:
-                    self.shot_at_asteroids[(closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], closest_asteroid["radius"], dy, dx)] = math.ceil(bullet_t / time_delta)
-            elif closest_asteroid is not None:
+                if (best_asteroid["velocity"][0], best_asteroid["velocity"][1], best_asteroid["radius"], dx, dy) not in self.shot_at_asteroids:
+                    self.shot_at_asteroids[(best_asteroid["velocity"][0], best_asteroid["velocity"][1], best_asteroid["radius"], dy, dx)] = math.ceil(bullet_t / time_delta)
+            elif best_asteroid is not None:
                 fire = False
                 # Try to fire on the next frame
                 self.fire_on_frames.add(self.eval_frames + 1)
-                print('WAITING UNTIL I CAN FIRE')
+                #print('WAITING UNTIL I CAN FIRE')
                 #turn_rate = 0 # OVERRIDE TO 0 OTHERWISE WE MISS
             else:
                 fire = False
@@ -652,19 +657,33 @@ class NeoController(KesslerController):
         trigger_controller.compute()
         
         #turn_rate = shooting.output['ship_turn'] # DO NOT USE THIS TO TURN!!!!!!
-        thrust = trigger_controller.output['ship_thrust']
-        '''
-        if shooting.output['ship_fire'] >= 0:
-            fire = True
-        else:
-            fire = False
-        '''
+        #thrust = trigger_controller.output['ship_thrust'] # USE AVOIDANCE CONTROLLER FOR THRUST, NOT THIS
+
+        # Find physically closest asteroid
+        closest_asteroid = None
+        closest_gap_between_ship_and_closest_asteroid = 1000000000
+        for a in game_state["asteroids"]:
+            curr_dist_square = (a["position"][0] - ship_x)**2 + (a["position"][1] - ship_y)**2
+            curr_dist = math.sqrt(curr_dist_square)
+            if max(curr_dist - a['radius'] - ship_state['radius'], 0) < closest_gap_between_ship_and_closest_asteroid:
+                closest_gap_between_ship_and_closest_asteroid = max(curr_dist - a['radius'] - ship_state['radius'], 0)
+                closest_asteroid = a
+
+        _, shooting_theta, _, _ = calculate_interception(ship_x + ship_vel_x, ship_y + ship_vel_y, closest_asteroid['position'][0] + 2 * time_delta * closest_asteroid["velocity"][0], closest_asteroid["position"][1] + 2 * time_delta * closest_asteroid["velocity"][1], closest_asteroid["velocity"][0], closest_asteroid["velocity"][1], ship_heading)
+
+        avoidance_controller = ctrl.ControlSystemSimulation(self.avoidance_control, flush_after_run=1)
+        avoidance_controller.input['theta_delta'] = shooting_theta
+
+        avoidance_controller.input['distance'] = min(closest_gap_between_ship_and_closest_asteroid, 499) # Dist to the closest asteroid, clipped to 500 max
+        avoidance_controller.compute()
+        thrust = avoidance_controller.output['ship_thrust']
+
         # this controller will look at out current speed and thurst and adjust so we dont uncontrollably runaway
         thrust_controller = ctrl.ControlSystemSimulation(self.thrust_control, flush_after_run=1)
         
         thrust_controller.input['ship_speed'] = ship_state['speed']
         thrust_controller.input['current_ship_thrust'] = thrust
-        thrust_controller.compute()   
+        thrust_controller.compute()
         
         thrust = thrust_controller.output['ship_thrust']
         
