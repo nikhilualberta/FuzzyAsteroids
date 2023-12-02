@@ -111,7 +111,8 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
     # We're gonna simulate the game to detect imminent collisions
     def check_collision(a_x, a_y, a_r, b_x, b_y, b_r):
         #print(a_x, a_y, a_r, b_x, b_y, b_r)
-        collision_fudge_factor = 1.02
+        #collision_fudge_factor = 1.02
+        collision_fudge_factor = 2
         if (a_x - b_x)**2 + (a_y - b_y)**2 <= collision_fudge_factor*(a_r + b_r)**2:
             return True
         else:
@@ -170,7 +171,7 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
                 a['position'][1] += max_y
             if check_collision(a['position'][0], a['position'][1], a['radius'], ship_x, ship_y, ship_radius):
                 closest_asteroid = asteroids[ind//index_scale_factor] # Asteroids list only has 1/9 the elements before duplication
-                #print(f"Closest asteroid to hit me is at {i*time_delta} seconds from now")
+                #print(f"Closest asteroid to hit me is at {ind*time_delta} seconds from now")
                 #print(closest_asteroid)
                 breakout_flag = True
                 break
@@ -309,11 +310,11 @@ class NeoController(KesslerController):
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
         #theta_pid_input = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_pid_input') # Radians due to Python
-        asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
+        #asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
         ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed')
         current_ship_thrust = ctrl.Antecedent(np.arange(-480, 480, 1), 'current_ship_thrust')
-        ship_pos_x = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_x')
-        ship_pos_y = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_y')
+        #ship_pos_x = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_x')
+        #ship_pos_y = ctrl.Antecedent(np.arange(0,800,1), 'ship_pos_y')
 
         ship_turn = ctrl.Consequent(np.arange(-180,180,1), 'ship_turn') # Degrees due to Kessler
         ship_fire = ctrl.Consequent(np.arange(-1,1,0.1), 'ship_fire')
@@ -333,7 +334,7 @@ class NeoController(KesslerController):
         theta_delta['Z'] = fuzz.trimf(theta_delta.universe, [-1*angle_small_threshold, 0, angle_small_threshold])
         theta_delta['PS'] = fuzz.trimf(theta_delta.universe, [0, angle_small_threshold, angle_large_threshold])
         theta_delta['PL'] = fuzz.smf(theta_delta.universe, angle_small_threshold, angle_large_threshold)
-        #theta_delta['PL'].view() Looks messed the heck up but it's fine
+        #theta_delta['PL'].view() #Looks messed the heck up but it's fine
         #pid_scale_factor = 3.0
         #theta_pid_input['NL'] = fuzz.zmf(theta_pid_input.universe, -1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6)
         #theta_pid_input['NS'] = fuzz.trimf(theta_pid_input.universe, [-1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6, 0])
@@ -354,14 +355,15 @@ class NeoController(KesslerController):
         ship_fire['Y'] = fuzz.trimf(ship_fire.universe, [-0.1, 1, 1])
         #ship_fire['Y'].view() ehh it's fiiiiiinnne
         
-        thrust_max_point = 480
-        thrust_mid_point = 120
+        thrust_max_point = 300
+        thrust_mid_point = 50
 
         ship_thrust['NL'] = fuzz.trimf(ship_thrust.universe, [-thrust_max_point, -thrust_max_point, -thrust_mid_point])
         ship_thrust['NS'] = fuzz.trimf(ship_thrust.universe, [-thrust_max_point, -thrust_mid_point, 0])
         ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, [-thrust_mid_point, 0, thrust_mid_point])
         ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, [0, thrust_mid_point, thrust_max_point])
         ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, [thrust_mid_point, thrust_max_point, thrust_max_point])
+        #ship_thrust['PL'].view()
         # THIS SHOULD ALSO BE GOOD
         current_ship_thrust['NL'] = fuzz.trimf(current_ship_thrust.universe, [-thrust_max_point, -thrust_max_point, -thrust_mid_point])
         current_ship_thrust['NS'] = fuzz.trimf(current_ship_thrust.universe, [-thrust_max_point, -thrust_mid_point, 0])
@@ -370,19 +372,13 @@ class NeoController(KesslerController):
         current_ship_thrust['PL'] = fuzz.trimf(current_ship_thrust.universe, [thrust_mid_point, thrust_max_point, thrust_max_point])
         # current_ship_thrust['PL'].view() THIS IS GOOD
         ship_speed_max_point = 240
-        ship_speed_mid_point = 50
+        ship_speed_mid_point = 30
         ship_speed['NL'] = fuzz.trimf(ship_speed.universe, [-ship_speed_max_point, -ship_speed_max_point, -ship_speed_mid_point])
         ship_speed['NS'] = fuzz.trimf(ship_speed.universe, [-ship_speed_max_point, -ship_speed_mid_point, -0])
         ship_speed['Z'] = fuzz.trimf(ship_speed.universe, [-ship_speed_mid_point, 0, ship_speed_mid_point])
         ship_speed['PS'] = fuzz.trimf(ship_speed.universe, [0, ship_speed_mid_point, ship_speed_max_point])
         ship_speed['PL'] = fuzz.trimf(ship_speed.universe, [ship_speed_mid_point, ship_speed_max_point, ship_speed_max_point])
         #ship_speed['PL'].view() # THIS IS GOOD NOW
-        
-        buffer = 70
-        min_x = 0
-        min_y = 0
-        max_x = game_state['map_size'][0]
-        max_y = game_state['map_size'][1]
 
         distance = ctrl.Antecedent(np.arange(0,700,50), 'distance')
 
@@ -462,36 +458,37 @@ class NeoController(KesslerController):
         ]
 
         avoidance_rules = [
+            # Mid distance away
             ctrl.Rule(distance['M'] & theta_delta['NL'], (ship_turn['Z'], ship_fire['N'], ship_thrust['PL'])),
             ctrl.Rule(distance['M'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS'])),
             ctrl.Rule(distance['M'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PS'])),
             ctrl.Rule(distance['M'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS'])),
             ctrl.Rule(distance['M'] & theta_delta['PL'], (ship_turn['Z'], ship_fire['N'], ship_thrust['PL'])),
-            
-            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
-            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NL'])),
-            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL'])),
-            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NL'])),
-            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL'])),
-
+            # Close distance, large thrust
+            #ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
+            #ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NL'])),
+            #ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL'])),
+            #ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NL'])),
+            #ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL'])),
+            # Close distance, small thrust
             ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PS'])),
             ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS'])),
-            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL'])),
             ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS'])),
             ctrl.Rule((distance['C'] | distance['VC']) & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PS'])),
-
+            # Very close distance
             ctrl.Rule(distance['VC'] & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PS'])),#the astroid is small we can get away with turning
             ctrl.Rule(distance['VC'] & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['NS'])),
-            ctrl.Rule(distance['VC'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NS'])),
+            ctrl.Rule(distance['VC'] & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['NL'])),
             ctrl.Rule(distance['VC'] & theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['NS'])),
             ctrl.Rule(distance['VC'] & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PS'])),  #the astroid is small we can get away with turning
             
-            #far away go towards
-            ctrl.Rule((distance['F'] | distance['VF'] | distance['M']) & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['PL'])),
-            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M']) & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PL'])),
+            # Asteroid is far
+            ctrl.Rule((distance['F'] | distance['VF'] | distance['M']) & theta_delta['NL'], (ship_turn['NL'], ship_fire['N'], ship_thrust['Z'])), # Behind us, don't move
+            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M']) & theta_delta['NS'], (ship_turn['NS'], ship_fire['Y'], ship_thrust['PS'])),
             ctrl.Rule((distance['F'] | distance['VF'] |  distance['M']) & theta_delta['Z'], (ship_turn['Z'], ship_fire['Y'], ship_thrust['PL'])),
-            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M'])& theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PL'])),
-            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M']) & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['PL']))
+            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M'])& theta_delta['PS'], (ship_turn['PS'], ship_fire['Y'], ship_thrust['PS'])),
+            ctrl.Rule((distance['F'] | distance['VF'] |  distance['M']) & theta_delta['PL'], (ship_turn['PL'], ship_fire['N'], ship_thrust['Z']))
         ]
 
         #DEBUG
