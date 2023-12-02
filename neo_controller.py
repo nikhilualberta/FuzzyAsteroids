@@ -205,7 +205,7 @@ def find_closest_asteroid(game_state, ship_state, shot_at_asteroids, time_to_sim
                 break
     #print(f"Inner counter: {inner_counter}")
     #print(len(simulated_asteroids), len(asteroids))
-    closest_asteroid = None
+    #closest_asteroid = None
     if closest_asteroid is not None:
         #print(f"Asteroid getting close, <={time_to_simulate} seconds away. Defend!")
         return closest_asteroid
@@ -565,7 +565,7 @@ class NeoController(KesslerController):
         else:
             print('WACKO CASE')
             bullet_t = 100
-            shooting_theta = 100
+            shooting_theta = 0
         #print(f"Shooting theta: {shooting_theta}, bullet t: {bullet_t}")
         
         # Pass the inputs to the rulebase and fire it
