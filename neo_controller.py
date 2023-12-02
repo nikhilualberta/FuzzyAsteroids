@@ -331,7 +331,7 @@ class NeoController(KesslerController):
         # Declare variables
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
         theta_delta = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_delta') # Radians due to Python
-        theta_pid_input = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_pid_input') # Radians due to Python
+        #theta_pid_input = ctrl.Antecedent(np.arange(-1*math.pi,math.pi,0.1), 'theta_pid_input') # Radians due to Python
         asteroid_distance = ctrl.Antecedent(np.arange(0,228,1), 'asteroid_distance')
         ship_speed = ctrl.Antecedent(np.arange(-240,240,1), 'ship_speed')
         current_ship_thrust = ctrl.Antecedent(np.arange(-480, 480, 1), 'current_ship_thrust')
@@ -348,7 +348,7 @@ class NeoController(KesslerController):
         bullet_time['L'] = fuzz.smf(bullet_time.universe,0.0,0.1)
 
         # Declare fuzzy sets for theta_delta (degrees of turn needed to reach the calculated firing angle)
-        angle_small_threshold = math.pi/40
+        angle_small_threshold = math.pi/50
         angle_large_threshold = math.pi
         theta_delta['NL'] = fuzz.zmf(theta_delta.universe, -1*angle_large_threshold, -1*angle_small_threshold)
         theta_delta['NS'] = fuzz.trimf(theta_delta.universe, [-1*angle_large_threshold, -1*angle_small_threshold, 0])
@@ -356,12 +356,12 @@ class NeoController(KesslerController):
         theta_delta['PS'] = fuzz.trimf(theta_delta.universe, [0, angle_small_threshold, angle_large_threshold])
         theta_delta['PL'] = fuzz.smf(theta_delta.universe, angle_small_threshold, angle_large_threshold)
 
-        pid_scale_factor = 3.0
-        theta_pid_input['NL'] = fuzz.zmf(theta_pid_input.universe, -1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6)
-        theta_pid_input['NS'] = fuzz.trimf(theta_pid_input.universe, [-1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6, 0])
-        theta_pid_input['Z'] = fuzz.trimf(theta_pid_input.universe, [-1*pid_scale_factor*math.pi/6, 0, pid_scale_factor*math.pi/6])
-        theta_pid_input['PS'] = fuzz.trimf(theta_pid_input.universe, [0, pid_scale_factor*math.pi/6, pid_scale_factor*math.pi/3])
-        theta_pid_input['PL'] = fuzz.smf(theta_pid_input.universe, pid_scale_factor*math.pi/6, pid_scale_factor*math.pi/3)
+        #pid_scale_factor = 3.0
+        #theta_pid_input['NL'] = fuzz.zmf(theta_pid_input.universe, -1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6)
+        #theta_pid_input['NS'] = fuzz.trimf(theta_pid_input.universe, [-1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6, 0])
+        #theta_pid_input['Z'] = fuzz.trimf(theta_pid_input.universe, [-1*pid_scale_factor*math.pi/6, 0, pid_scale_factor*math.pi/6])
+        #theta_pid_input['PS'] = fuzz.trimf(theta_pid_input.universe, [0, pid_scale_factor*math.pi/6, pid_scale_factor*math.pi/3])
+        #theta_pid_input['PL'] = fuzz.smf(theta_pid_input.universe, pid_scale_factor*math.pi/6, pid_scale_factor*math.pi/3)
 
         # Declare fuzzy sets for the ship_turn consequent; this will be returned as turn_rate.
         ship_turn['NL'] = fuzz.trimf(ship_turn.universe, [-180,-180,-45])
@@ -431,17 +431,17 @@ class NeoController(KesslerController):
         ]
 
         # Declare each fuzzy rule
-        defensive_camper_rules = [
+        trigger_rules = [
             # PID controller to determine turn rate
             # ship_turn = P + I + D = theta_delta + theta_delta_integral + theta_delta_derivative
-            ctrl.Rule(theta_pid_input['NL'], ship_turn['NL']),
-            ctrl.Rule(theta_pid_input['NS'], ship_turn['NS']),
-            ctrl.Rule(theta_pid_input['Z'], ship_turn['Z']),
-            ctrl.Rule(theta_pid_input['PS'], ship_turn['PS']),
-            ctrl.Rule(theta_pid_input['PL'], ship_turn['PL']),
+            #ctrl.Rule(theta_pid_input['NL'], ship_turn['NL']),
+            #ctrl.Rule(theta_pid_input['NS'], ship_turn['NS']),
+            #ctrl.Rule(theta_pid_input['Z'], ship_turn['Z']),
+            #ctrl.Rule(theta_pid_input['PS'], ship_turn['PS']),
+            #ctrl.Rule(theta_pid_input['PL'], ship_turn['PL']),
 
             # Only fire if we're pretty much aimed at the asteroid
-            ctrl.Rule(theta_delta['NL'] | theta_delta['PL'], ship_fire['N']),
+            ctrl.Rule(theta_delta['NL'] | theta_delta['PL'] | theta_delta['NS'] | theta_delta['PS'], ship_fire['N']),
             ctrl.Rule(theta_delta['Z'], ship_fire['Y']),
 
             # If we're far from the asteroid, thrust toward it. If we're super close, stop going closer and even back up a bit
@@ -451,7 +451,7 @@ class NeoController(KesslerController):
         ]
         
         thrust_control_rules = [
-            # If we are moving slowly enough just continue with current thrust
+            #if we are moving slowly enough just continue with current thrust
             ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['PL'])), # We are moving very slowly so let them continue
             ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['PS'])), # We are moving very slowly so let them continue
             ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['NS'] | ship_speed['Z'] | ship_speed['PS']), (ship_thrust['Z'])),
@@ -472,11 +472,11 @@ class NeoController(KesslerController):
             ctrl.Rule(current_ship_thrust['PL'] & ship_speed['PL'], (ship_thrust['NL'])), #slow down
             ctrl.Rule(current_ship_thrust['PL'] & ship_speed['PS'], (ship_thrust['NL'])), #slow down
             
-            ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['PL'])), #slow down
-            ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['PS'])), #slow down
-            ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['Z'])), #slow down
-            ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['NS'])), #slow down
-            ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['NS']), (ship_thrust['NL'])) #slow down
+            ctrl.Rule(current_ship_thrust['PL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['PL'])), #slow down
+            ctrl.Rule(current_ship_thrust['PS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['PS'])), #slow down
+            ctrl.Rule(current_ship_thrust['Z'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['Z'])), #slow down
+            ctrl.Rule(current_ship_thrust['NS'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NS'])), #slow down
+            ctrl.Rule(current_ship_thrust['NL'] & (ship_speed['PL'] | ship_speed['PS'] | ship_speed['Z'] | ship_speed['NL'] | ship_speed['PL'] | ship_speed['NS']), (ship_thrust['NL'])) #slow down
         ]
 
         turn_control_rules = [
@@ -499,7 +499,7 @@ class NeoController(KesslerController):
             self.position_control.addrule(i)
          
         self.targeting_control = ctrl.ControlSystem()
-        for i in defensive_camper_rules:
+        for i in trigger_rules:
             self.targeting_control.addrule(i)
             
         self.thrust_control = ctrl.ControlSystem()
@@ -637,34 +637,33 @@ class NeoController(KesslerController):
         for key in keys_to_remove:
             del self.shot_at_asteroids[key]
         
-        #print(f"Turn rate: {turn_rate}")
-        #thrust = shooting.output['ship_thrust']
-        #if shooting.output['ship_fire'] >= 0 and not ship_state['is_respawning']:
-        #    fire = True
-        #else:
-        #    fire = False
+        # Pass the inputs to the rulebase and fire it
+        shooting = ctrl.ControlSystemSimulation(self.targeting_control,flush_after_run=1)
+    
+        shooting.input['bullet_time'] = bullet_t
+        shooting.input['theta_delta'] = shooting_theta
+        #shooting.input['distance'] = closest_asteroid["dist"] - closest_asteroid["aster"]['radius']
         
-        # And return your three outputs to the game simulation. Controller algorithm complete.
+        shooting.compute()
         
-        # position = ctrl.ControlSystemSimulation(self.position_conrol,flush_after_run=1)
-        # if(ship_pos_x >= 730 or ship_pos_x <= 70):
-        #     position.input['ship_pos_x'] = ship_pos_x
-        #     # position.input['ship_pos_y'] = ship_pos_y
-        #     position.input['theta_delta'] = shooting_theta
-        
-        #     position.compute()
-        #     # turn_rate = position.output['ship_turn']
-        #     thrust = position.output['ship_thrust']
-        thrust = 0
-        # this controller will look at out current speed and thrust and adjust so we dont uncontrollably runaway
+        #turn_rate = shooting.output['ship_turn'] # DO NOT USE THIS TO TURN!!!!!!
+        thrust = shooting.output['ship_thrust']
+        '''
+        if shooting.output['ship_fire'] >= 0:
+            fire = True
+        else:
+            fire = False
+        '''
+        # this controller will look at out current speed and thurst and adjust so we dont uncontrollably runaway
         thrust_controller = ctrl.ControlSystemSimulation(self.thrust_control,flush_after_run=1)
         
         thrust_controller.input['ship_speed'] = ship_state['speed']
         thrust_controller.input['current_ship_thrust'] = thrust
-        thrust_controller.compute()
+        thrust_controller.compute()   
         
-        #thrust = thrust_controller.output['ship_thrust']
-        thrust = 0
+        thrust = thrust_controller.output['ship_thrust']
+        
+        #thrust = 0
         self.eval_frames +=1
         #DEBUG
         #print(thrust, bullet_t, shooting_theta, turn_rate, fire)
