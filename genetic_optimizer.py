@@ -1,8 +1,29 @@
 import EasyGA
+from neo_controller_genetic import NeoController
+from kesslergame import Scenario, KesslerGame, GraphicsType
 
-def fitness():
+def fitness(chromosome):
+    # define the scenario
+    my_test_scenario = Scenario(name='Test Scenario',
+    num_asteroids=5,
+    ship_states=[
+    {'position': (400, 400), 'angle': 90, 'lives': 3, 'team': 1},
+    ],
+    map_size=(1000, 800),
+    time_limit=60,
+    ammo_limit_multiplier=0,
+    stop_if_no_ammo=False)
+    game_settings = {'perf_tracker': True,
+    'graphics_type': GraphicsType.Tkinter,
+    'realtime_multiplier': 1,
+    'graphics_obj': None}
+    game = KesslerGame(settings=game_settings)
+    
+    neo_controller = NeoController(chromosome)
+    score, _ = game.run(scenario=my_test_scenario, controllers=[neo_controller])
+    # Return the negative number of asteroids hit to maximize it
+    return score.teams[0].asteroids_hit
 
-    return
 
 def generate_chromosome():
     chromosome = []
@@ -19,8 +40,4 @@ ga.fitness_function_impl = fitness
 
 ga.evolve()
 ga.print_best_chromosome()
-best_chromosome = ga.population[0] # pass this into our controller probably like below
-# class DefensiveCamperController(KesslerController):
-        
-    # def __init__(self, chromosome):
-        #chromosome = [[1,2,3],...]
+best_chromosome = ga.population[0]
