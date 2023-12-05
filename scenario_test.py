@@ -3,13 +3,14 @@
 # this source code package.
 
 import time
-from kesslergame import Scenario, KesslerGame, GraphicsType
+from kesslergame import Scenario, KesslerGame, GraphicsType, TrainerEnvironment
 from test_controller import TestController
 from scott_dick_controller import ScottDickController
 from defensive_camper_controller import DefensiveCamperController
 from threat_controller import ThreatController
 from graphics_both import GraphicsBoth
 from neo_controller import NeoController
+from neo_controller_genetic import GeneticNeoController
 
 my_test_scenario = Scenario(name='Test Scenario',
  num_asteroids=5,
@@ -26,7 +27,7 @@ game_settings = {'perf_tracker': True,
  'realtime_multiplier': 1,
  'graphics_obj': None}
 game = KesslerGame(settings=game_settings) # Use this to visualize the game scenario
-# game = TrainerEnvironment(settings=game_settings) # Use this for max-speed, no-graphics simulation
+#game = TrainerEnvironment(settings=game_settings) # Use this for max-speed, no-graphics simulation
 pre = time.perf_counter()
 score, perf_data = game.run(scenario=my_test_scenario, controllers = [TestController(), NeoController()])
 print('Scenario eval time: '+str(time.perf_counter()-pre))

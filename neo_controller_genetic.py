@@ -290,11 +290,12 @@ def calculate_interception(ship_pos_x, ship_pos_y, asteroid_pos_x, asteroid_pos_
     return bullet_t, shooting_theta, intercept_x, intercept_y
 
 
-class NeoController(KesslerController):
+class GeneticNeoController(KesslerController):
     def __init__(self, chromosome):
         self.init_done = False
 
         self.chromosome = chromosome # TODO CHANGE THIS TO THE CHROMOSOME ONCE WE HAVE IT. So run the genetic optimizer, then just copy that array into here.
+        
         self.pid_integral = 0
         self.pid_previous_error = 0
         self.previously_targetted_asteroid = None
@@ -366,20 +367,22 @@ class NeoController(KesslerController):
         ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, chromosome[22].value)
         #ship_thrust['PL'].view()
         # THIS SHOULD ALSO BE GOOD
+ 
         current_ship_thrust['NL'] = fuzz.trimf(current_ship_thrust.universe, chromosome[23].value)
         current_ship_thrust['NS'] = fuzz.trimf(current_ship_thrust.universe, chromosome[24].value)
         current_ship_thrust['Z'] = fuzz.trimf(current_ship_thrust.universe, chromosome[25].value)
         current_ship_thrust['PS'] = fuzz.trimf(current_ship_thrust.universe, chromosome[26].value)
         current_ship_thrust['PL'] = fuzz.trimf(current_ship_thrust.universe, chromosome[27].value)
-        # current_ship_thrust['PL'].view() THIS IS GOOD
+        #current_ship_thrust.view() #THIS IS GOOD
         ship_speed_max_point = 240
         ship_speed_mid_point = 30
+  
         ship_speed['NL'] = fuzz.trimf(ship_speed.universe, chromosome[28].value)
         ship_speed['NS'] = fuzz.trimf(ship_speed.universe, chromosome[29].value)
         ship_speed['Z'] = fuzz.trimf(ship_speed.universe, chromosome[30].value)
         ship_speed['PS'] = fuzz.trimf(ship_speed.universe, chromosome[31].value)
         ship_speed['PL'] = fuzz.trimf(ship_speed.universe, chromosome[32].value)
-        #ship_speed['PL'].view() # THIS IS GOOD NOW
+        #ship_speed.view() # THIS IS GOOD NOW
 
         distance = ctrl.Antecedent(np.arange(0,700,50), 'distance')
 
@@ -398,22 +401,23 @@ class NeoController(KesslerController):
         turn_output = ctrl.Consequent(np.arange(-turn_rate_range*fuzzy_fudge, turn_rate_range*fuzzy_fudge + 1, 1), 'turn_output')
 
         # Define membership functions for turn_error
-        turn_error['negative'] = fuzz.trapmf(turn_error.universe, chromosome[33].value)
-        turn_error['positive'] = fuzz.trapmf(turn_error.universe, chromosome[34].value)
+        # Define membership functions for turn_error
+        turn_error['negative'] = fuzz.trapmf(turn_error.universe, [-turn_rate_range, -turn_rate_range, 0, zero_width])
+        turn_error['positive'] = fuzz.trapmf(turn_error.universe, [-zero_width, 0, turn_rate_range, turn_rate_range])
 
         # Define membership functions for turn_output
-        turn_output['negative'] = fuzz.trapmf(turn_output.universe, chromosome[35].value)
-        turn_output['positive'] = fuzz.trapmf(turn_output.universe, chromosome[36].value)
+        turn_output['negative'] = fuzz.trapmf(turn_output.universe, [-turn_rate_range/time_delta, -turn_rate_range/time_delta, 0, zero_width])
+        turn_output['positive'] = fuzz.trapmf(turn_output.universe, [-zero_width, 0, turn_rate_range/time_delta, turn_rate_range/time_delta])
         # 0 30 60 80 100 150 200 400 450 500
         distance_max_threshold = 500
         distance_large_threshold = 200
         distance_mid_threshold = 100
         distance_small_threshold = 50
-        distance['VC'] = fuzz.trimf(distance.universe, chromosome[37].value)
-        distance['C'] = fuzz.trimf(distance.universe, chromosome[38].value)
-        distance['M'] = fuzz.trimf(distance.universe, chromosome[39].value)
-        distance['F'] = fuzz.trimf(distance.universe, chromosome[40].value)
-        distance['VF'] = fuzz.trimf(distance.universe, chromosome[41].value)
+        distance['VC'] = fuzz.trimf(distance.universe, chromosome[33].value)
+        distance['C'] = fuzz.trimf(distance.universe, chromosome[34].value)
+        distance['M'] = fuzz.trimf(distance.universe, chromosome[35].value)
+        distance['F'] = fuzz.trimf(distance.universe, chromosome[36].value)
+        distance['VF'] = fuzz.trimf(distance.universe, chromosome[37].value)
         #distance['VC'].view() THIS IS GOOD NOW
         # Declare each fuzzy rule
         trigger_rules = [
@@ -709,4 +713,4 @@ class NeoController(KesslerController):
 
     @property
     def name(self) -> str:
-        return "Neo Controller"
+        return "Genetic Neo Controller"
