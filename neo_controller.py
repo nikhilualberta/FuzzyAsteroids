@@ -414,6 +414,16 @@ class NeoController(KesslerController):
         distance['F'] = fuzz.trimf(distance.universe, [distance_mid_threshold, distance_large_threshold, distance_max_threshold])
         distance['VF'] = fuzz.trimf(distance.universe, [distance_large_threshold, distance_max_threshold, distance_max_threshold])
         #distance['VC'].view() THIS IS GOOD NOW
+                # DEBUG: See all the memberships
+        # distance.view() #THIS IS GOOD NOW
+        # current_ship_thrust.view()
+        # ship_thrust.view()
+        # ship_speed.view() # THIS IS GOOD NOW
+        # ship_turn.view(block=True) #Weird but fine
+        # bullet_time.view(block=True) #ooh fancy, this is good
+        # theta_delta.view(block=True) #Looks messed the heck up but it's fine
+        # ship_fire.view() #ehh it's fiiiiiinnne
+        # input("Press Enter to close the plots...")
         # Declare each fuzzy rule
         trigger_rules = [
             # Only fire if we're pretty much aimed at the asteroid

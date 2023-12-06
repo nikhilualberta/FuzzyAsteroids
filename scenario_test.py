@@ -6,12 +6,11 @@ import time
 from kesslergame import Scenario, KesslerGame, GraphicsType, TrainerEnvironment
 from test_controller import TestController
 from scott_dick_controller import ScottDickController
-from defensive_camper_controller import DefensiveCamperController
-from threat_controller import ThreatController
 from graphics_both import GraphicsBoth
 from neo_controller import NeoController
 from neo_controller_genetic import GeneticNeoController
 from genetic_optimizer import best_chromosome # run the GA and grab the best chromosome
+
 my_test_scenario = Scenario(name='Test Scenario',
  num_asteroids=5,
 ship_states=[

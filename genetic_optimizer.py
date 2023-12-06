@@ -83,25 +83,25 @@ def generate_chromosome():
     # ship turn
     a = -180
     b = -180
-    c = random.uniform(-180, -45)
+    c = -45
     chromosome.append([a, b, c])
 
-    a = random.uniform(-90, 0)
+    a = random.uniform(-90, -46)
     b = random.uniform(a, 0)
-    c = random.uniform(b, 0)
+    c = 0
     chromosome.append([a, b, c])
 
-    a = random.uniform(-45, 45)
+    a = random.uniform(-45, -1)
     b = random.uniform(a, 45)
-    c = random.uniform(b, 45)
+    c = 45
     chromosome.append([a, b, c])
 
-    a = random.uniform(0, 90)
+    a = random.uniform(0, 44)
     b = random.uniform(a, 90)
-    c = random.uniform(b, 90)
+    c = 90
     chromosome.append([a, b, c])
 
-    a = random.uniform(45, 180)
+    a = random.uniform(45, 89)
     b = random.uniform(a, 180)
     c = 180
     chromosome.append([a, b, c])
@@ -116,25 +116,25 @@ def generate_chromosome():
 
     a = -thrust_max_point
     b = -thrust_max_point
-    c = random.uniform(-thrust_max_point, -thrust_mid_point)
+    c = -thrust_mid_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(-thrust_max_point, 0)
+    a = random.uniform(-thrust_max_point, -thrust_mid_point-1)
     b = random.uniform(a, 0)
-    c = random.uniform(b, 0)
+    c = 0
     chromosome.append([a, b, c])
 
-    a = random.uniform(-thrust_mid_point, thrust_mid_point)
+    a = random.uniform(-thrust_mid_point, -1)
     b = random.uniform(a, thrust_mid_point)
-    c = random.uniform(b, thrust_mid_point)
+    c = thrust_mid_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(0, thrust_max_point)
+    a = random.uniform(0, thrust_mid_point)
     b = random.uniform(a, thrust_max_point)
-    c = random.uniform(b, thrust_max_point)
+    c = thrust_max_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(thrust_mid_point, thrust_max_point)
+    a = random.uniform(thrust_mid_point, thrust_max_point-1)
     b = random.uniform(a, thrust_max_point)
     c = thrust_max_point
     chromosome.append([a, b, c])
@@ -142,25 +142,25 @@ def generate_chromosome():
     # current ship thrust
     a = -thrust_max_point
     b = -thrust_max_point
-    c = random.uniform(-thrust_max_point, -thrust_mid_point)
+    c = -thrust_mid_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(-thrust_max_point, 0)
+    a = random.uniform(-thrust_max_point, -thrust_mid_point)
     b = random.uniform(a, 0)
-    c = random.uniform(b, 0)
+    c = 0
     chromosome.append([a, b, c])
 
-    a = random.uniform(-thrust_mid_point, thrust_mid_point)
+    a = random.uniform(-thrust_mid_point, -1)
     b = random.uniform(a, thrust_mid_point)
-    c = random.uniform(b, thrust_mid_point)
+    c = thrust_mid_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(0, thrust_max_point)
+    a = random.uniform(0, thrust_mid_point-1)
     b = random.uniform(a, thrust_max_point)
-    c = random.uniform(b, thrust_max_point)
+    c = thrust_max_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(thrust_mid_point, thrust_max_point)
+    a = random.uniform(thrust_mid_point, thrust_max_point-1)
     b = random.uniform(a, thrust_max_point)
     c = thrust_max_point
     chromosome.append([a, b, c])
@@ -170,25 +170,25 @@ def generate_chromosome():
     ship_speed_mid_point = 30
     a = -ship_speed_max_point
     b = -ship_speed_max_point
-    c = random.uniform(-ship_speed_max_point, -ship_speed_mid_point)
+    c = -ship_speed_mid_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(c, 0)
+    a = random.uniform(-ship_speed_max_point, -ship_speed_mid_point-1)
     b = random.uniform(a, 0)
-    c = random.uniform(b, 0)
+    c = 0
     chromosome.append([a, b, c])
 
-    a = random.uniform(-ship_speed_mid_point, ship_speed_mid_point)
+    a = random.uniform(-ship_speed_mid_point, -1)
     b = random.uniform(a, ship_speed_mid_point)
-    c = random.uniform(b, ship_speed_mid_point)
+    c = ship_speed_mid_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(0, ship_speed_max_point)
+    a = random.uniform(0, ship_speed_mid_point-1)
     b = random.uniform(a, ship_speed_max_point)
-    c = random.uniform(b, ship_speed_max_point)
+    c = ship_speed_max_point
     chromosome.append([a, b, c])
 
-    a = random.uniform(ship_speed_mid_point, ship_speed_max_point)
+    a = random.uniform(ship_speed_mid_point, ship_speed_max_point-1)
     b = random.uniform(a, ship_speed_max_point)
     c = ship_speed_max_point
     chromosome.append([a, b, c])
@@ -205,25 +205,25 @@ def generate_chromosome():
 
     a = 0
     b = 0
-    c = random.uniform(0, distance_small_threshold)
+    c = distance_small_threshold
     chromosome.append([a, b, c])
 
-    a = random.uniform(0, distance_mid_threshold)
+    a = random.uniform(0, distance_small_threshold-1)
     b = random.uniform(a, distance_mid_threshold)
-    c = random.uniform(b, distance_mid_threshold)
+    c = distance_mid_threshold
     chromosome.append([a, b, c])
 
-    a = random.uniform(distance_small_threshold, distance_large_threshold)
+    a = random.uniform(distance_small_threshold, distance_mid_threshold-1)
     b = random.uniform(a, distance_large_threshold)
-    c = random.uniform(b, distance_large_threshold)
+    c = distance_large_threshold
     chromosome.append([a, b, c])
 
-    a = random.uniform(distance_mid_threshold, distance_max_threshold)
+    a = random.uniform(distance_mid_threshold, distance_large_threshold-1)
     b = random.uniform(a, distance_max_threshold)
-    c = random.uniform(b, distance_max_threshold)
+    c = distance_max_threshold
     chromosome.append([a, b, c])
 
-    a = random.uniform(distance_large_threshold, distance_max_threshold)
+    a = random.uniform(distance_large_threshold, distance_max_threshold-1)
     b = random.uniform(a, distance_max_threshold)
     c = distance_max_threshold
     chromosome.append([a, b, c])
@@ -336,7 +336,7 @@ def generate_guided_chromosome():
 ga = EasyGA.GA()
 ga.chromosome_impl = lambda: generate_chromosome()
 ga.chromosome_length = 38 
-ga.population_size = 2
+ga.population_size = 10
 ga.target_fitness_type = 'max'
 ga.generation_goal = 2
 ga.fitness_function_impl = fitness
