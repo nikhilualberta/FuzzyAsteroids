@@ -306,7 +306,6 @@ class GeneticNeoController(KesslerController):
 
     def finish_init(self, game_state, chromosome):
         self.eval_frames = 0 #What is this?
-
         # self.targeting_control is the targeting rulebase, which is static in this controller.      
         # Declare variables
         bullet_time = ctrl.Antecedent(np.arange(0,1.0,0.002), 'bullet_time')
@@ -326,8 +325,7 @@ class GeneticNeoController(KesslerController):
         bullet_time['S'] = fuzz.trimf(bullet_time.universe, chromosome[0].value) #chromosome[0].value should be [0, 0.05, 0.1] so chromosome is [[0,0.05,0.1],...]
         bullet_time['M'] = fuzz.trimf(bullet_time.universe, chromosome[1].value)
         bullet_time['L'] = fuzz.smf(bullet_time.universe,chromosome[2].value,chromosome[3].value) # these are not arrays, they are just floats
-        #bullet_time['L'].view() ooh fancy, this is good
-
+       
         # Declare fuzzy sets for theta_delta (degrees of turn needed to reach the calculated firing angle)
         angle_small_threshold = math.pi/50
         angle_large_threshold = math.pi
@@ -336,7 +334,8 @@ class GeneticNeoController(KesslerController):
         theta_delta['Z'] = fuzz.trimf(theta_delta.universe, chromosome[7].value)
         theta_delta['PS'] = fuzz.trimf(theta_delta.universe, chromosome[8].value)
         theta_delta['PL'] = fuzz.smf(theta_delta.universe, chromosome[9].value, chromosome[10].value)
-        #theta_delta['PL'].view() #Looks messed the heck up but it's fine
+
+
         #pid_scale_factor = 3.0
         #theta_pid_input['NL'] = fuzz.zmf(theta_pid_input.universe, -1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6)
         #theta_pid_input['NS'] = fuzz.trimf(theta_pid_input.universe, [-1*pid_scale_factor*math.pi/3, -1*pid_scale_factor*math.pi/6, 0])
@@ -350,12 +349,12 @@ class GeneticNeoController(KesslerController):
         ship_turn['Z'] = fuzz.trimf(ship_turn.universe, chromosome[13].value)
         ship_turn['PS'] = fuzz.trimf(ship_turn.universe, chromosome[14].value)
         ship_turn['PL'] = fuzz.trimf(ship_turn.universe, chromosome[15].value)
-        #ship_turn['PL'].view() Weird but fine
+    
         #Declare singleton fuzzy sets for the ship_fire consequent; -1 -> don't fire, +1 -> fire; this will be thresholded
         #   and returned as the boolean 'fire'
         ship_fire['N'] = fuzz.trimf(ship_fire.universe, chromosome[16].value)
         ship_fire['Y'] = fuzz.trimf(ship_fire.universe, chromosome[17].value)
-        #ship_fire['Y'].view() ehh it's fiiiiiinnne
+        
         
         thrust_max_point = 300
         thrust_mid_point = 50
@@ -365,7 +364,7 @@ class GeneticNeoController(KesslerController):
         ship_thrust['Z'] = fuzz.trimf(ship_thrust.universe, chromosome[20].value)
         ship_thrust['PS'] = fuzz.trimf(ship_thrust.universe, chromosome[21].value)
         ship_thrust['PL'] = fuzz.trimf(ship_thrust.universe, chromosome[22].value)
-        #ship_thrust['PL'].view()
+        
         # THIS SHOULD ALSO BE GOOD
  
         current_ship_thrust['NL'] = fuzz.trimf(current_ship_thrust.universe, chromosome[23].value)
@@ -373,7 +372,7 @@ class GeneticNeoController(KesslerController):
         current_ship_thrust['Z'] = fuzz.trimf(current_ship_thrust.universe, chromosome[25].value)
         current_ship_thrust['PS'] = fuzz.trimf(current_ship_thrust.universe, chromosome[26].value)
         current_ship_thrust['PL'] = fuzz.trimf(current_ship_thrust.universe, chromosome[27].value)
-        #current_ship_thrust.view() #THIS IS GOOD
+        #THIS IS GOOD
         ship_speed_max_point = 240
         ship_speed_mid_point = 30
   
@@ -382,7 +381,6 @@ class GeneticNeoController(KesslerController):
         ship_speed['Z'] = fuzz.trimf(ship_speed.universe, chromosome[30].value)
         ship_speed['PS'] = fuzz.trimf(ship_speed.universe, chromosome[31].value)
         ship_speed['PL'] = fuzz.trimf(ship_speed.universe, chromosome[32].value)
-        #ship_speed.view() # THIS IS GOOD NOW
 
         distance = ctrl.Antecedent(np.arange(0,700,50), 'distance')
 
@@ -418,7 +416,20 @@ class GeneticNeoController(KesslerController):
         distance['M'] = fuzz.trimf(distance.universe, chromosome[35].value)
         distance['F'] = fuzz.trimf(distance.universe, chromosome[36].value)
         distance['VF'] = fuzz.trimf(distance.universe, chromosome[37].value)
-        #distance['VC'].view() THIS IS GOOD NOW
+
+        # DEBUG: See all the memberships
+        # distance.view() #THIS IS GOOD NOW
+        # current_ship_thrust.view()
+        # ship_thrust.view()
+        # ship_speed.view() # THIS IS GOOD NOW
+        # ship_turn.view(block=True) #Weird but fine
+        # bullet_time.view(block=True) #ooh fancy, this is good
+        # theta_delta.view(block=True) #Looks messed the heck up but it's fine
+        # ship_fire.view() #ehh it's fiiiiiinnne
+        # input("Press Enter to close the plots...")
+
+
+
         # Declare each fuzzy rule
         trigger_rules = [
             # Only fire if we're pretty much aimed at the asteroid

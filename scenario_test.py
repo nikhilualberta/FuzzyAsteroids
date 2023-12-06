@@ -11,7 +11,7 @@ from threat_controller import ThreatController
 from graphics_both import GraphicsBoth
 from neo_controller import NeoController
 from neo_controller_genetic import GeneticNeoController
-
+from genetic_optimizer import best_chromosome # run the GA and grab the best chromosome
 my_test_scenario = Scenario(name='Test Scenario',
  num_asteroids=5,
 ship_states=[
@@ -29,7 +29,7 @@ game_settings = {'perf_tracker': True,
 game = KesslerGame(settings=game_settings) # Use this to visualize the game scenario
 #game = TrainerEnvironment(settings=game_settings) # Use this for max-speed, no-graphics simulation
 pre = time.perf_counter()
-score, perf_data = game.run(scenario=my_test_scenario, controllers = [TestController(), NeoController()])
+score, perf_data = game.run(scenario=my_test_scenario, controllers = [TestController(), GeneticNeoController(best_chromosome)])
 print('Scenario eval time: '+str(time.perf_counter()-pre))
 print(score.stop_reason)
 print('Asteroids hit: ' + str([team.asteroids_hit for team in score.teams]))
