@@ -294,7 +294,7 @@ class GeneticNeoController(KesslerController):
     def __init__(self, chromosome):
         self.init_done = False
 
-        self.chromosome = chromosome # TODO CHANGE THIS TO THE CHROMOSOME ONCE WE HAVE IT. So run the genetic optimizer, then just copy that array into here.
+        self.chromosome = chromosome 
         
         self.pid_integral = 0
         self.pid_previous_error = 0
